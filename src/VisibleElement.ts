@@ -17,6 +17,20 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         super('1');
         this.data = this.getData(false);
     }
+    print() {
+        console.log('');
+        console.log('Current VisibleElement State:');
+        console.log('Boundary set to:', { top: this.top, left: this.left, bottom: this.bottom, right: this.right });
+        console.log(this.data);
+        console.log(this.offsetX, this.offsetY);
+        console.log('Visible nodes:', this.getVisibleNodes());
+    }
+    setBoundary(top: number, left: number, right: number, bottom: number) {
+        this.top = top;
+        this.left = left;
+        this.right = right;
+        this.bottom = bottom;
+    }
     point(x: number, y: number) {
         for (const nodeId in this.data) {
             const node = this.data[nodeId];
@@ -27,5 +41,19 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             }
         }
         return null;
+    }
+    calVisibleNodes() {
+        this.visibleNodeIdSet.clear();
+        for (const nodeId in this.data) {
+            const node = this.data[nodeId];
+            if (node) {
+                if (node.x + node.w + this.offsetX >= this.left && node.x + this.offsetX <= this.right && node.y + node.h + this.offsetY >= this.top && node.y + this.offsetY <= this.bottom) {
+                    this.visibleNodeIdSet.add(nodeId);
+                }
+            }
+        }
+    }
+    getVisibleNodes() {
+        return [...this.visibleNodeIdSet];
     }
 }

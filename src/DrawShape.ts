@@ -28,9 +28,18 @@ export abstract class DrawShape {
                 this._ctx.moveTo(pos[0].x, pos[0].y);
             }
             for (let i = 1; i < pos.length; i++) {
+                const prev = pos[i - 1];
                 const point = pos[i];
-                if (point) {
-                    this._ctx.lineTo(point.x, point.y);
+                if (prev && point) {
+                    const cpOffsetX = (point.x - prev.x) / 2;
+                    this._ctx.bezierCurveTo(
+                        prev.x + cpOffsetX,
+                        prev.y,
+                        point.x - cpOffsetX,
+                        point.y,
+                        point.x,
+                        point.y,
+                    );
                 }
             }
             this._ctx.stroke();

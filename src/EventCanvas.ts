@@ -31,6 +31,7 @@ export class EventCanvas extends DrawShape {
         } else {
             throw new Error('Failed to get canvas context');
         }
+        this.visibleElement.setBoundary(0, 0, width, height);
         this.canvas = canvas;
         this.initEvent();
         this.initDemo();
@@ -43,7 +44,7 @@ export class EventCanvas extends DrawShape {
             h: Math.floor(Math.random() * 50) + 25,
         }, '1', 'right');
         const directions: AttachDirection[] = ['right', 'left', 'top', 'bottom'];
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 100000; i++) {
             const nonRootNodeIds = Object.keys(this.visibleElement.getData()).filter((id) => id !== '1');
             const attachId = nonRootNodeIds[Math.floor(Math.random() * nonRootNodeIds.length)];
             if (!attachId) {
@@ -145,9 +146,12 @@ export class EventCanvas extends DrawShape {
     }
     private render() {
         this.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        const data = this.visibleElement.getData();
+        this.visibleElement.calVisibleNodes();
+        const data = this.visibleElement.getData(false);
         const lineDis = 16;
-        for (const nodeId in data) {
+        const visibleNodeIds = this.visibleElement.getVisibleNodes();
+        // this.visibleElement.print();
+        for (const nodeId of visibleNodeIds) {
             const node = data[nodeId];
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX;
@@ -160,7 +164,7 @@ export class EventCanvas extends DrawShape {
                         this.line([
                             { x: parentNode.x + parentNode.w + this.visibleElement.offsetX, y: parentNode.y + lineDis + this.visibleElement.offsetY },
                             { x: node.x + this.visibleElement.offsetX, y: node.y + lineDis + this.visibleElement.offsetY },
-                        ]);
+                        ], 2);
                     }
                 }
             }
@@ -173,6 +177,7 @@ export class EventCanvas extends DrawShape {
         this.canvas.style.width = `${width}px`;
         this.canvas.style.height = `${height}px`;
         this.scale(devicePixelRatio, devicePixelRatio);
+        this.visibleElement.setBoundary(0, 0, width, height);
         this.draw();
     }
 }

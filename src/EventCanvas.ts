@@ -26,22 +26,22 @@ export class EventCanvas extends DrawShape {
         root.appendChild(canvas);
         const ctx: CanvasRenderingContext2D | null = canvas.getContext('2d');
         if (ctx) {
-            ctx.scale(devicePixelRatio, devicePixelRatio);
+            super(ctx);
+            this.scale(devicePixelRatio, devicePixelRatio);
         } else {
             throw new Error('Failed to get canvas context');
         }
-        super(ctx);
         this.canvas = canvas;
-        this.visibleElement.addRight({
-            id: `${this._TEMP_ID++}`,
-            w: Math.floor(Math.random() * 100) + 50,
-            h: Math.floor(Math.random() * 50) + 25,
-        }, '1', 'right');
         this.initEvent();
         this.initDemo();
         this.draw();
     }
     private initDemo() {
+        this.visibleElement.addRight({
+            id: `${this._TEMP_ID++}`,
+            w: Math.floor(Math.random() * 100) + 50,
+            h: Math.floor(Math.random() * 50) + 25,
+        }, '1', 'right');
         const directions: AttachDirection[] = ['right', 'left', 'top', 'bottom'];
         for (let i = 0; i < 20; i++) {
             const nonRootNodeIds = Object.keys(this.visibleElement.getData()).filter((id) => id !== '1');
@@ -67,13 +67,16 @@ export class EventCanvas extends DrawShape {
     private initEvent() {
         this.canvas.addEventListener('contextmenu', (event) => {
             event.preventDefault();
-            const nodeId = this.visibleElement.point(event.offsetX, event.offsetY);
-            if (nodeId) { }
         });
         this.canvas.addEventListener('mousedown', (event) => {
             this.pressInfo.isPressed = true;
             this.pressInfo.offsetX = event.offsetX;
             this.pressInfo.offsetY = event.offsetY;
+
+            const nodeId = this.visibleElement.point(event.offsetX, event.offsetY);
+            if (nodeId) {
+                console.log('Right-clicked node:', nodeId);
+            }
         });
         this.canvas.addEventListener('mousemove', (event) => {
             if (this.pressInfo.isPressed) {
@@ -91,9 +94,6 @@ export class EventCanvas extends DrawShape {
         });
         this.canvas.addEventListener('mouseleave', (event) => {
             this.pressInfo.isPressed = false;
-        });
-        window.addEventListener('resize', (event) => {
-
         });
         window.addEventListener('scroll', (event) => { });
         window.addEventListener('keydown', (event) => {
@@ -165,5 +165,14 @@ export class EventCanvas extends DrawShape {
                 }
             }
         }
+    }
+    public resize(width: number, height: number) {
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        this.canvas.width = width * devicePixelRatio;
+        this.canvas.height = height * devicePixelRatio;
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+        this.scale(devicePixelRatio, devicePixelRatio);
+        this.draw();
     }
 }

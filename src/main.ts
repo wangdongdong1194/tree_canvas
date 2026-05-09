@@ -6,5 +6,8 @@ import { EventCanvas } from './EventCanvas';
         throw new Error('Canvas root not found');
     }
 
-    new EventCanvas(canvasRoot, window.innerWidth, window.innerHeight);
+    const eventCanvas = new EventCanvas(canvasRoot, window.innerWidth, window.innerHeight);
+    window.addEventListener('resize', (event) => {
+        eventCanvas.resize(window.innerWidth, window.innerHeight);
+    });
 })();

@@ -21,7 +21,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         for (const nodeId in this.data) {
             const node = this.data[nodeId];
             if (node) {
-                if (x >= node.x && x <= node.x + node.w && y >= node.y && y <= node.y + node.h) {
+                if (x >= node.x + this.offsetX && x <= node.x + node.w + this.offsetX && y >= node.y + this.offsetY && y <= node.y + node.h + this.offsetY) {
                     return nodeId;
                 }
             }

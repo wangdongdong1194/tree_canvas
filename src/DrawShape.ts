@@ -48,4 +48,7 @@ export abstract class DrawShape {
     protected clearRect(x: number, y: number, width: number, height: number) {
         this._ctx.clearRect(x, y, width, height);
     }
+    scale(x: number, y: number) {
+        this._ctx.scale(x, y);
+    }
 }

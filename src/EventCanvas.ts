@@ -1,6 +1,6 @@
-import type { AttachDirection, INodeData } from "ld_algorithm";
+import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
-import { VisibleElement, type IVisibleNode } from "./VisibleElement";
+import { VisibleElement } from "./VisibleElement";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
@@ -10,11 +10,6 @@ export class EventCanvas extends DrawShape {
     private _TEMP_ID = 2;
     private drawRequestId: number | null = null;
     private pressedArrowKeys = new Set<ArrowKey>();
-    private pressInfo = {
-        isPressed: false,
-        offsetX: 0,
-        offsetY: 0,
-    };
 
     constructor(root: HTMLElement, width: number, height: number) {
         const devicePixelRatio = window.devicePixelRatio || 1;
@@ -38,31 +33,35 @@ export class EventCanvas extends DrawShape {
         this.draw();
     }
     private initDemo() {
+        const firstNodeId = `${this._TEMP_ID++}`;
         this.visibleElement.addRight({
-            id: `${this._TEMP_ID++}`,
+            id: firstNodeId,
             w: Math.floor(Math.random() * 100) + 50,
             h: Math.floor(Math.random() * 50) + 25,
         }, '1', 'right');
+        const nonRootNodeIds = [firstNodeId];
         const directions: AttachDirection[] = ['right', 'left', 'top', 'bottom'];
-        for (let i = 0; i < 100000; i++) {
-            const nonRootNodeIds = Object.keys(this.visibleElement.getData()).filter((id) => id !== '1');
+        for (let i = 0; i < 200000; i++) {
             const attachId = nonRootNodeIds[Math.floor(Math.random() * nonRootNodeIds.length)];
             if (!attachId) {
                 continue;
             }
             const direction = directions[i % directions.length] ?? 'right';
+            const newNodeId = `${this._TEMP_ID++}`;
             this.visibleElement.addRight({
-                id: `${this._TEMP_ID++}`,
+                id: newNodeId,
                 w: Math.floor(Math.random() * 100) + 50,
                 h: Math.floor(Math.random() * 50) + 25,
             }, attachId, direction);
+            nonRootNodeIds.push(newNodeId);
         }
-        const root = this.visibleElement.getData(false)['1'];
+        const root = this.visibleElement.getDataRef()['1'];
         if (root) {
             root.x = 50;
             root.y = 50;
         }
         this.visibleElement.calculateNodePosition();
+        this.visibleElement.rebuildSpatialIndex();
         this.draw();
     }
     private initEvent() {
@@ -70,33 +69,26 @@ export class EventCanvas extends DrawShape {
             event.preventDefault();
         });
         this.canvas.addEventListener('mousedown', (event) => {
-            this.pressInfo.isPressed = true;
-            this.pressInfo.offsetX = event.offsetX;
-            this.pressInfo.offsetY = event.offsetY;
-
             const nodeId = this.visibleElement.point(event.offsetX, event.offsetY);
             if (nodeId) {
                 console.log('Right-clicked node:', nodeId);
             }
         });
         this.canvas.addEventListener('mousemove', (event) => {
-            if (this.pressInfo.isPressed) {
-                const dx = event.offsetX - this.pressInfo.offsetX;
-                const dy = event.offsetY - this.pressInfo.offsetY;
-                this.pressInfo.offsetX = event.offsetX;
-                this.pressInfo.offsetY = event.offsetY;
-                this.visibleElement.offsetX += dx;
-                this.visibleElement.offsetY += dy;
-                this.draw();
-            }
+
         });
         this.canvas.addEventListener('mouseup', (event) => {
-            this.pressInfo.isPressed = false;
+
         });
         this.canvas.addEventListener('mouseleave', (event) => {
-            this.pressInfo.isPressed = false;
+
         });
-        window.addEventListener('scroll', (event) => { });
+        this.canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            this.visibleElement.offsetX -= event.deltaX;
+            this.visibleElement.offsetY -= event.deltaY;
+            this.draw();
+        }, { passive: false });
         window.addEventListener('keydown', (event) => {
             if (this.isArrowKey(event.key)) {
                 event.preventDefault();
@@ -147,9 +139,9 @@ export class EventCanvas extends DrawShape {
     private render() {
         this.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.visibleElement.calVisibleNodes();
-        const data = this.visibleElement.getData(false);
+        const data = this.visibleElement.getDataRef();
         const lineDis = 16;
-        const visibleNodeIds = this.visibleElement.getVisibleNodes();
+        const visibleNodeIds = this.visibleElement.getVisibleNodeIds();
         // this.visibleElement.print();
         for (const nodeId of visibleNodeIds) {
             const node = data[nodeId];

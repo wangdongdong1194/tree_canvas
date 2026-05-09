@@ -3,23 +3,23 @@ export abstract class DrawShape {
     constructor(ctx: CanvasRenderingContext2D) {
         this._ctx = ctx;
     }
-    strokeRect(x: number, y: number, width: number, height: number, radius: number = 0) {
+    protected strokeRect(x: number, y: number, width: number, height: number, radius: number = 0) {
         this._ctx.beginPath();
         this._ctx.save();
-        this._ctx.lineWidth = 1;
+        this._ctx.lineWidth = 2;
         this._ctx.roundRect(x, y, width, height, radius);
-        this._ctx.restore();
         this._ctx.stroke();
+        this._ctx.restore();
     }
-    fillRect(x: number, y: number, width: number, height: number, radius: number = 0) {
+    protected fillRect(x: number, y: number, width: number, height: number, radius: number = 0) {
         this._ctx.beginPath();
         this._ctx.save();
         this._ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         this._ctx.roundRect(x, y, width, height, radius);
-        this._ctx.restore();
         this._ctx.fill();
+        this._ctx.restore();
     }
-    line(pos: { x: number, y: number }[], width: number = 1) {
+    protected line(pos: { x: number, y: number }[], width: number = 1) {
         if (pos.length > 1) {
             this._ctx.beginPath();
             this._ctx.save();
@@ -33,16 +33,19 @@ export abstract class DrawShape {
                     this._ctx.lineTo(point.x, point.y);
                 }
             }
-            this._ctx.restore();
             this._ctx.stroke();
+            this._ctx.restore();
         }
     }
-    text(text: string, x: number, y: number, fontSize: number = 12, color: string = 'black') {
+    protected text(text: string, x: number, y: number, fontSize: number = 12, color: string = 'black') {
         this._ctx.beginPath();
         this._ctx.save();
         this._ctx.font = `${fontSize}px sans-serif`;
         this._ctx.fillStyle = color;
         this._ctx.fillText(text, x, y);
         this._ctx.restore();
+    }
+    protected clearRect(x: number, y: number, width: number, height: number) {
+        this._ctx.clearRect(x, y, width, height);
     }
 }

@@ -2,11 +2,10 @@
   "name": "ld_draw",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "build": "tsc"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "wangdongdong1194",
@@ -16,5 +15,8 @@
     "tsx": "^4.20.6",
     "typescript": "^6.0.2",
     "vite": "^8.0.11"
+  },
+  "dependencies": {
+    "ld_algorithm": "^1.0.12"
   }
 }

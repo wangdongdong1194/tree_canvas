@@ -139,9 +139,10 @@ export class EventCanvas extends DrawShape {
     private render() {
         this.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.visibleElement.calVisibleNodes();
+        this.visibleElement.calVisibleLines();
         const data = this.visibleElement.getDataRef();
-        const lineDis = 16;
         const visibleNodeIds = this.visibleElement.getVisibleNodeIds();
+        const visibleLines = this.visibleElement.getVisibleLines();
         // this.visibleElement.print();
         for (const nodeId of visibleNodeIds) {
             const node = data[nodeId];
@@ -150,16 +151,13 @@ export class EventCanvas extends DrawShape {
                 const nodeY = node.y + this.visibleElement.offsetY;
                 this.strokeRect(nodeX, nodeY, node.w, node.h, 4);
                 this.text(node.id, nodeX + 10, nodeY + 20);
-                if (node.parentId) {
-                    const parentNode = data[node.parentId];
-                    if (parentNode) {
-                        this.line([
-                            { x: parentNode.x + parentNode.w + this.visibleElement.offsetX, y: parentNode.y + lineDis + this.visibleElement.offsetY },
-                            { x: node.x + this.visibleElement.offsetX, y: node.y + lineDis + this.visibleElement.offsetY },
-                        ], 2);
-                    }
-                }
             }
+        }
+        for (const visibleLine of visibleLines) {
+            this.line([
+                { x: visibleLine.startX, y: visibleLine.startY },
+                { x: visibleLine.endX, y: visibleLine.endY },
+            ], 2);
         }
     }
     public resize(width: number, height: number) {

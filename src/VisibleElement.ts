@@ -2,6 +2,15 @@ import { BaseData, type IBaseData, type INodeData } from "ld_algorithm";
 
 export interface IVisibleNode extends IBaseData { }
 
+export interface IVisibleLine {
+    parentId: string;
+    childId: string;
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+}
+
 export class VisibleElement extends BaseData<IVisibleNode> {
     private data: INodeData<IVisibleNode>;
     public offsetX = 0; // 偏移
@@ -13,6 +22,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     private selectedNodeIdSet = new Set<string>();
     private hoveredNodeIdSet = new Set<string>();
     private visibleNodeIdSet = new Set<string>();
+    private visibleLines: IVisibleLine[] = [];
     private spatialIndex = new Map<string, Set<string>>();
     private spatialCellSize = 320;
     constructor() {
@@ -119,7 +129,100 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             }
         }
     }
+    calVisibleLines() {
+        this.visibleLines = [];
+        const lineDis = 16;
+        const minVisibleLineLength = 8;
+
+        const clipLineToViewport = (x1: number, y1: number, x2: number, y2: number) => {
+            let t0 = 0;
+            let t1 = 1;
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+
+            const clip = (p: number, q: number) => {
+                if (p === 0) {
+                    return q >= 0;
+                }
+                const r = q / p;
+                if (p < 0) {
+                    if (r > t1) {
+                        return false;
+                    }
+                    if (r > t0) {
+                        t0 = r;
+                    }
+                } else {
+                    if (r < t0) {
+                        return false;
+                    }
+                    if (r < t1) {
+                        t1 = r;
+                    }
+                }
+                return true;
+            };
+
+            if (!clip(-dx, x1 - this.left)) {
+                return null;
+            }
+            if (!clip(dx, this.right - x1)) {
+                return null;
+            }
+            if (!clip(-dy, y1 - this.top)) {
+                return null;
+            }
+            if (!clip(dy, this.bottom - y1)) {
+                return null;
+            }
+
+            return {
+                startX: x1 + t0 * dx,
+                startY: y1 + t0 * dy,
+                endX: x1 + t1 * dx,
+                endY: y1 + t1 * dy,
+            };
+        };
+
+        for (const childId in this.data) {
+            const childNode = this.data[childId];
+            if (!childNode?.parentId) {
+                continue;
+            }
+            const parentNode = this.data[childNode.parentId];
+            if (!parentNode) {
+                continue;
+            }
+
+            const x1 = parentNode.x + parentNode.w + this.offsetX;
+            const y1 = parentNode.y + lineDis + this.offsetY;
+            const x2 = childNode.x + this.offsetX;
+            const y2 = childNode.y + lineDis + this.offsetY;
+            const clippedLine = clipLineToViewport(x1, y1, x2, y2);
+            if (!clippedLine) {
+                continue;
+            }
+            const visibleLength = Math.hypot(
+                clippedLine.endX - clippedLine.startX,
+                clippedLine.endY - clippedLine.startY,
+            );
+            if (visibleLength < minVisibleLineLength) {
+                continue;
+            }
+            this.visibleLines.push({
+                parentId: childNode.parentId,
+                childId,
+                startX: clippedLine.startX,
+                startY: clippedLine.startY,
+                endX: clippedLine.endX,
+                endY: clippedLine.endY,
+            });
+        }
+    }
     getVisibleNodeIds() {
         return this.visibleNodeIdSet.values();
+    }
+    getVisibleLines() {
+        return this.visibleLines;
     }
 }

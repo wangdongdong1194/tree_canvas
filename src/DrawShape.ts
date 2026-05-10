@@ -1,13 +1,23 @@
+export interface IStrokeRectOptions {
+    radius?: number;
+    strokeStyle?: string;
+}
+
 export abstract class DrawShape {
     private _ctx: CanvasRenderingContext2D;
     constructor(ctx: CanvasRenderingContext2D) {
         this._ctx = ctx;
     }
-    protected strokeRect(x: number, y: number, width: number, height: number, radius: number = 0) {
+    protected strokeRect(x: number, y: number, width: number, height: number, options?: IStrokeRectOptions) {
         this._ctx.beginPath();
         this._ctx.save();
         this._ctx.lineWidth = 2;
-        this._ctx.roundRect(x, y, width, height, radius);
+        if (options) {
+            if (options.strokeStyle) {
+                this._ctx.strokeStyle = options.strokeStyle;
+            }
+        }
+        this._ctx.roundRect(x, y, width, height, options?.radius ?? 0);
         this._ctx.stroke();
         this._ctx.restore();
     }

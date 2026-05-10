@@ -225,4 +225,45 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     getVisibleLines() {
         return this.visibleLines;
     }
+    setSelectNodeByPos(x: number, y: number, multi: boolean) {
+        const visibleNodeIds = this.getVisibleNodeIds();
+        for (const nodeId of visibleNodeIds) {
+            if (this.isPointInnerNode(x, y, nodeId)) {
+                if (multi) {
+                    if (this.selectedNodeIdSet.has(nodeId)) {
+                        this.selectedNodeIdSet.delete(nodeId);
+                    } else {
+                        this.selectedNodeIdSet.add(nodeId);
+                    }
+                } else {
+                    this.selectedNodeIdSet.clear();
+                    this.selectedNodeIdSet.add(nodeId);
+                }
+                return;
+            }
+        }
+    }
+    getSelectedNodeIds() {
+        return this.selectedNodeIdSet.values();
+    }
+    setHoverNodeByPos(x: number, y: number) {
+        const visibleNodeIds = this.getVisibleNodeIds();
+        for (const nodeId of visibleNodeIds) {
+            if (this.isPointInnerNode(x, y, nodeId)) {
+                this.hoveredNodeIdSet.add(nodeId);
+            } else {
+                this.hoveredNodeIdSet.delete(nodeId);
+            }
+        }
+    }
+    getHoveredNodeIds() {
+        return this.hoveredNodeIdSet.values();
+    }
+    private isPointInnerNode(x: number, y: number, nodeId: string) {
+        const node = this.data[nodeId];
+        if (!node) {
+            return false;
+        }
+        return x >= node.x + this.offsetX && x <= node.x + this.offsetX + node.w && y >= node.y + this.offsetY && y <= node.y + this.offsetY + node.h;
+    }
 }

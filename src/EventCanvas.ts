@@ -10,6 +10,8 @@ export class EventCanvas extends DrawShape {
     private _TEMP_ID = 2;
     private drawRequestId: number | null = null;
     private pressedArrowKeys = new Set<ArrowKey>();
+    private SELECTED_GAP = 5;
+    private HOVERED_GAP = 5;
 
     constructor(root: HTMLElement, width: number, height: number) {
         const devicePixelRatio = window.devicePixelRatio || 1;
@@ -69,13 +71,21 @@ export class EventCanvas extends DrawShape {
             event.preventDefault();
         });
         this.canvas.addEventListener('mousedown', (event) => {
-            const nodeId = this.visibleElement.point(event.offsetX, event.offsetY);
-            if (nodeId) {
-                console.log('Right-clicked node:', nodeId);
+            const preSelectIds = [...this.visibleElement.getSelectedNodeIds()];
+            this.visibleElement.setSelectNodeByPos(event.offsetX, event.offsetY, event.shiftKey);
+            const curSelectIds = [...this.visibleElement.getSelectedNodeIds()];
+            // 比较pre和cur是否一致，如果不一致则调用draw
+            if (preSelectIds.length !== curSelectIds.length || !preSelectIds.every(id => curSelectIds.includes(id))) {
+                this.draw();
             }
         });
         this.canvas.addEventListener('mousemove', (event) => {
-
+            const preHoverIds = [...this.visibleElement.getHoveredNodeIds()];
+            this.visibleElement.setHoverNodeByPos(event.offsetX, event.offsetY);
+            const curHoverIds = [...this.visibleElement.getHoveredNodeIds()];
+            if (preHoverIds.length !== curHoverIds.length || !preHoverIds.every(id => curHoverIds.includes(id))) {
+                this.draw();
+            }
         });
         this.canvas.addEventListener('mouseup', (event) => {
 
@@ -143,21 +153,40 @@ export class EventCanvas extends DrawShape {
         const data = this.visibleElement.getDataRef();
         const visibleNodeIds = this.visibleElement.getVisibleNodeIds();
         const visibleLines = this.visibleElement.getVisibleLines();
-        // this.visibleElement.print();
+        // 绘制可视节点
         for (const nodeId of visibleNodeIds) {
             const node = data[nodeId];
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX;
                 const nodeY = node.y + this.visibleElement.offsetY;
-                this.strokeRect(nodeX, nodeY, node.w, node.h, 4);
+                this.strokeRect(nodeX, nodeY, node.w, node.h, { radius: 4 });
                 this.text(node.id, nodeX + 10, nodeY + 20);
             }
         }
+        // 绘制连接线
         for (const visibleLine of visibleLines) {
             this.line([
                 { x: visibleLine.startX, y: visibleLine.startY },
                 { x: visibleLine.endX, y: visibleLine.endY },
             ], 2);
+        }
+        // 选中
+        for (const nodeId of this.visibleElement.getHoveredNodeIds()) {
+            const node = data[nodeId];
+            if (node) {
+                const nodeX = node.x + this.visibleElement.offsetX - this.HOVERED_GAP;
+                const nodeY = node.y + this.visibleElement.offsetY - this.HOVERED_GAP;
+                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#CDCD00' });
+            }
+        }
+        // 绘制被选中节点
+        for (const nodeId of this.visibleElement.getSelectedNodeIds()) {
+            const node = data[nodeId];
+            if (node) {
+                const nodeX = node.x + this.visibleElement.offsetX - this.SELECTED_GAP;
+                const nodeY = node.y + this.visibleElement.offsetY - this.SELECTED_GAP;
+                this.strokeRect(nodeX, nodeY, node.w + this.SELECTED_GAP * 2, node.h + this.SELECTED_GAP * 2, { radius: 4, strokeStyle: '#00CDCD' });
+            }
         }
     }
     public resize(width: number, height: number) {

@@ -1,6 +1,7 @@
 import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
 import { VisibleElement } from "./VisibleElement";
+import { EventKey } from "./EventKey";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
@@ -123,59 +124,18 @@ export class EventCanvas extends DrawShape {
         window.addEventListener('keyup', (event) => {
             if (this.isArrowKey(event.key)) {
                 this.pressedArrowKeys.delete(event.key as ArrowKey);
-            } else if (event.key === 'Escape') {
+            } else if (event.key === EventKey.Escape) {
                 if (this.visibleElement.getEditorId()) {
                     this.visibleElement.delEditorId();
                     this.draw();
                 }
-            } else if (event.key === 'Enter') {
-                this.enterInputHandler(event);
+            } else if (event.key === EventKey.Enter) {
+
             }
         });
         window.addEventListener('blur', () => {
             this.pressedArrowKeys.clear();
         });
-    }
-    private enterInputHandler(event: KeyboardEvent) {
-        if (event.shiftKey) {
-            return;
-        }
-        const editorId = this.visibleElement.getEditorId();
-        if (editorId) {
-            const node = this.visibleElement.getDataRef()[editorId];
-            if (node) {
-                const lines = this.textarea.value.split('\n');
-                let maxTextWidth = 0;
-                let currentOffsetY = 0;
-                const nextContents = lines.map((line) => {
-                    const text = line || '';
-                    const metrics = this.measureText(text, node.fontSize);
-                    const measuredWidth = Math.max(
-                        metrics.width,
-                        metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight,
-                    );
-                    maxTextWidth = Math.max(maxTextWidth, measuredWidth);
-                    const content = {
-                        text,
-                        textOffsetX: 0,
-                        textOffsetY: currentOffsetY,
-                    };
-                    currentOffsetY += metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + this.LINE_HEIGHT_GAP;
-                    return content;
-                });
-                if (lines.length > 0) {
-                    currentOffsetY -= this.LINE_HEIGHT_GAP;
-                }
-                const nextWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + this.TEXT_WIDTH_SAFE_GAP;
-                const nextHeight = currentOffsetY + this.TEXT_PADDING * 2;
-                node.w = nextWidth;
-                node.h = nextHeight;
-                node.contents = nextContents;
-                this.visibleElement.delEditorId();
-                this.visibleElement.calculateNodePosition();
-                this.draw();
-            }
-        }
     }
     private initTextarea() {
         const rootStyle = window.getComputedStyle(this.root);
@@ -206,6 +166,21 @@ export class EventCanvas extends DrawShape {
             }
             this.resizeTextareaByContent(node.w, node.h, node.fontSize || 12);
         });
+        textarea.addEventListener('keydown', (event) => {
+            if (event.key !== EventKey.Enter || event.shiftKey) {
+                return;
+            }
+            event.preventDefault();
+            const editorId = this.visibleElement.getEditorId();
+            if (!editorId) {
+                return;
+            }
+            const node = this.visibleElement.getDataRef()[editorId];
+            if (!node) {
+                return;
+            }
+            this.commitTextareaContent(editorId, node.fontSize || 12);
+        });
         textarea.addEventListener('compositionend', () => {
             const editorId = this.visibleElement.getEditorId();
             if (!editorId) {
@@ -217,8 +192,56 @@ export class EventCanvas extends DrawShape {
             }
             this.resizeTextareaByContent(node.w, node.h, node.fontSize || 12);
         });
+        textarea.addEventListener('keyup', (event) => {
+            if (event.key !== EventKey.Enter || event.shiftKey) {
+                return;
+            }
+        });
         this.root.appendChild(textarea);
         return textarea;
+    }
+    private commitTextareaContent(editorId: string, fontSize: number, rawText?: string) {
+        const node = this.visibleElement.getDataRef()[editorId];
+        if (!node) {
+            return;
+        }
+        const lines = this.normalizeTextLines(rawText ?? this.textarea.value);
+        let maxTextWidth = 0;
+        let currentOffsetY = 0;
+        const nextContents = lines.map((line) => {
+            const text = line || '';
+            const metrics = this.measureText(text, fontSize);
+            const measuredWidth = Math.max(
+                metrics.width,
+                metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight,
+            );
+            maxTextWidth = Math.max(maxTextWidth, measuredWidth);
+            const content = {
+                text,
+                textOffsetX: 0,
+                textOffsetY: currentOffsetY,
+            };
+            currentOffsetY += metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + this.LINE_HEIGHT_GAP;
+            return content;
+        });
+        if (lines.length > 0) {
+            currentOffsetY -= this.LINE_HEIGHT_GAP;
+        }
+        const nextWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + this.TEXT_WIDTH_SAFE_GAP;
+        const nextHeight = currentOffsetY + this.TEXT_PADDING * 2;
+        node.w = nextWidth;
+        node.h = nextHeight;
+        node.contents = nextContents;
+        this.visibleElement.delEditorId();
+        this.visibleElement.calculateNodePosition();
+        this.draw();
+    }
+    private normalizeTextLines(text: string) {
+        const lines = text.split('\n');
+        if (lines.length > 1 && lines[lines.length - 1] === '') {
+            return lines.slice(0, -1);
+        }
+        return lines;
     }
     private resizeTextareaByContent(minWidth: number, minHeight: number, fontSize: number) {
         const lines = this.textarea.value.split('\n');
@@ -277,7 +300,8 @@ export class EventCanvas extends DrawShape {
         }
     }
     private isArrowKey(key: string) {
-        return ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key);
+        const arrowKey = key as EventKey;
+        return [EventKey.ArrowUp, EventKey.ArrowDown, EventKey.ArrowLeft, EventKey.ArrowRight].includes(arrowKey);
     }
     private draw() {
         if (this.drawRequestId !== null) {

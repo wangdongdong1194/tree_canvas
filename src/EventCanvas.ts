@@ -170,13 +170,13 @@ export class EventCanvas extends DrawShape {
                 { x: visibleLine.endX, y: visibleLine.endY },
             ], 2);
         }
-        // 选中
+        // hover事件
         for (const nodeId of this.visibleElement.getHoveredNodeIds()) {
             const node = data[nodeId];
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX - this.HOVERED_GAP;
                 const nodeY = node.y + this.visibleElement.offsetY - this.HOVERED_GAP;
-                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#CDCD00' });
+                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#00EEEE' });
             }
         }
         // 绘制被选中节点

@@ -71,17 +71,6 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             }
         }
     }
-    point(x: number, y: number) {
-        for (const nodeId in this.data) {
-            const node = this.data[nodeId];
-            if (node) {
-                if (x >= node.x + this.offsetX && x <= node.x + node.w + this.offsetX && y >= node.y + this.offsetY && y <= node.y + node.h + this.offsetY) {
-                    return nodeId;
-                }
-            }
-        }
-        return null;
-    }
     calVisibleNodes() {
         this.visibleNodeIdSet.clear();
         const viewLeft = this.left - this.offsetX;
@@ -242,6 +231,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
                 return;
             }
         }
+        this.selectedNodeIdSet.clear();
     }
     getSelectedNodeIds() {
         return this.selectedNodeIdSet.values();

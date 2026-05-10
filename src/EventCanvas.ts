@@ -18,6 +18,7 @@ export class EventCanvas extends DrawShape {
     private readonly TEXT_BASELINE_OFFSET = 20; // 文本基线相对节点顶部偏移
     private readonly LINE_HEIGHT_GAP = 3; // 多行文本行高与字体大小的额外间距
     private readonly TEXT_WIDTH_SAFE_GAP = 2; // 文本宽度安全余量，避免临界换行
+    private ignoreNextEnterKeyup = false;
     private textarea: HTMLTextAreaElement;
 
     constructor(root: HTMLElement, width: number, height: number) {
@@ -130,7 +131,17 @@ export class EventCanvas extends DrawShape {
                     this.draw();
                 }
             } else if (event.key === EventKey.Enter) {
-
+                if (this.ignoreNextEnterKeyup) {
+                    this.ignoreNextEnterKeyup = false;
+                    return;
+                }
+                const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
+                if (!selectedNodeId || this.visibleElement.getEditorId() === selectedNodeId) {
+                    return;
+                }
+                if (this.visibleElement.setEditorIdById(selectedNodeId)) {
+                    this.draw();
+                }
             }
         });
         window.addEventListener('blur', () => {
@@ -171,6 +182,7 @@ export class EventCanvas extends DrawShape {
                 return;
             }
             event.preventDefault();
+            this.ignoreNextEnterKeyup = true;
             const editorId = this.visibleElement.getEditorId();
             if (!editorId) {
                 return;

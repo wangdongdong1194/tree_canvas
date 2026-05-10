@@ -250,6 +250,12 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     getSelectedNodeIds() {
         return this.selectedNodeIdSet.values();
     }
+    getSingleSelectedNodeId() {
+        if (this.selectedNodeIdSet.size !== 1) {
+            return null;
+        }
+        return this.selectedNodeIdSet.values().next().value ?? null;
+    }
     setHoverNodeByPos(x: number, y: number) {
         const visibleNodeIds = this.getVisibleNodeIds();
         for (const nodeId of visibleNodeIds) {
@@ -278,6 +284,13 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             }
         }
         this.editorId = '';
+    }
+    setEditorIdById(editorId: string) {
+        if (this.selectedNodeIdSet.size !== 1 || !this.selectedNodeIdSet.has(editorId)) {
+            return false;
+        }
+        this.editorId = editorId;
+        return true;
     }
     getEditorId() {
         return this.editorId;

@@ -246,6 +246,7 @@ export class EventCanvas extends DrawShape {
         node.contents = nextContents;
         this.visibleElement.delEditorId();
         this.visibleElement.calculateNodePosition();
+        this.visibleElement.rebuildSpatialIndex();
         this.draw();
     }
     private normalizeTextLines(text: string) {

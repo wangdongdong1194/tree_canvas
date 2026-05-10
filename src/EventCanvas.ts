@@ -116,7 +116,7 @@ export class EventCanvas extends DrawShape {
             if (this.visibleElement.getEditorId()) {
                 return; // 编辑状态下不响应键盘事件
             }
-            if (this.isArrowKey(event.key)) {
+            if (this.isArrowKey(event.key) && event.shiftKey) {
                 event.preventDefault();
                 this.pressedArrowKeys.add(event.key as ArrowKey);
                 this.draw();

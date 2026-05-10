@@ -64,6 +64,13 @@ export abstract class DrawShape {
         this._ctx.fillText(text, x, y);
         this._ctx.restore();
     }
+    protected measureText(text: string, fontSize: number = 12) {
+        this._ctx.save();
+        this._ctx.font = `${fontSize}px sans-serif`;
+        const metrics = this._ctx.measureText(text);
+        this._ctx.restore();
+        return metrics;
+    }
     protected clearRect(x: number, y: number, width: number, height: number) {
         this._ctx.clearRect(x, y, width, height);
     }

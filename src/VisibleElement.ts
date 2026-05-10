@@ -1,6 +1,14 @@
 import { BaseData, type IBaseData, type INodeData } from "ld_algorithm";
 
-export interface IVisibleNode extends IBaseData { }
+export interface IVisibleNode extends IBaseData {
+    fontSize: number;
+    contents: {
+        text: string;
+        textOffsetX: number;
+        textOffsetY: number;
+    }[];
+
+}
 
 export interface IVisibleLine {
     parentId: string;
@@ -25,6 +33,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     private visibleLines: IVisibleLine[] = [];
     private spatialIndex = new Map<string, Set<string>>();
     private spatialCellSize = 320;
+    private editorId: string = ''; // 编辑器ID
     constructor() {
         super('1');
         this.data = this.getData(false);
@@ -39,6 +48,11 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         console.log(this.data);
         console.log(this.offsetX, this.offsetY);
         console.log('Visible nodes:', this.getVisibleNodeIds());
+        console.log('Visible lines:', this.getVisibleLines());
+        console.log('Selected nodes:', this.getSelectedNodeIds());
+        console.log('Hovered nodes:', this.getHoveredNodeIds());
+        console.log('Editor ID:', this.getEditorId());
+        console.log('Spatial index size:', this.spatialIndex.size);
     }
     setBoundary(top: number, left: number, right: number, bottom: number) {
         this.top = top;
@@ -255,5 +269,20 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             return false;
         }
         return x >= node.x + this.offsetX && x <= node.x + this.offsetX + node.w && y >= node.y + this.offsetY && y <= node.y + this.offsetY + node.h;
+    }
+    setEditorId(x: number, y: number) {
+        for (const nodeId of this.getSelectedNodeIds()) {
+            if (this.isPointInnerNode(x, y, nodeId)) {
+                this.editorId = nodeId;
+                return;
+            }
+        }
+        this.editorId = '';
+    }
+    getEditorId() {
+        return this.editorId;
+    }
+    delEditorId() {
+        this.editorId = '';
     }
 }

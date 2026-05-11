@@ -17,7 +17,8 @@ export class EventCanvas extends DrawShape {
     private readonly TEXT_PADDING = 10; // 文本与节点边界的最小距离
     private readonly TEXT_BASELINE_OFFSET = 20; // 文本基线相对节点顶部偏移
     private readonly LINE_HEIGHT_GAP = 3; // 多行文本行高与字体大小的额外间距
-    private readonly TEXT_WIDTH_SAFE_GAP = 2; // 文本宽度安全余量，避免临界换行
+    private readonly MIN_NODE_WIDTH = 80; // 节点的最小宽度
+    private readonly MIN_NODE_HEIGHT = 30; // 节点的最小高度
     private ignoreNextEnterKeyup = false;
     private textarea: HTMLTextAreaElement;
 
@@ -116,10 +117,15 @@ export class EventCanvas extends DrawShape {
             if (this.visibleElement.getEditorId()) {
                 return; // 编辑状态下不响应键盘事件
             }
-            if (this.isArrowKey(event.key) && event.shiftKey) {
+            if (this.isArrowKey(event.key)) {
                 event.preventDefault();
-                this.pressedArrowKeys.add(event.key as ArrowKey);
-                this.draw();
+                if (event.shiftKey) { // 按住shift键滚动画布
+                    this.pressedArrowKeys.add(event.key as ArrowKey);
+                    this.draw();
+                } else {
+                    // 若选中一个节点，则切换选中节点
+                    // this.draw();
+                }
             }
         });
         window.addEventListener('keyup', (event) => {
@@ -164,7 +170,7 @@ export class EventCanvas extends DrawShape {
         textarea.style.border = '1px solid #00CDCD';
         textarea.style.borderRadius = '4px';
         textarea.style.padding = `${this.TEXT_PADDING}px`;
-        textarea.style.background = 'green';
+        textarea.style.background = '#aaffcc';
         textarea.style.fontSize = '14px';
         textarea.addEventListener('input', () => {
             const editorId = this.visibleElement.getEditorId();
@@ -239,8 +245,8 @@ export class EventCanvas extends DrawShape {
         if (lines.length > 0) {
             currentOffsetY -= this.LINE_HEIGHT_GAP;
         }
-        const nextWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + this.TEXT_WIDTH_SAFE_GAP;
-        const nextHeight = currentOffsetY + this.TEXT_PADDING * 2;
+        const nextWidth = Math.max(Math.ceil(maxTextWidth), this.MIN_NODE_WIDTH) + this.TEXT_PADDING * 2;
+        const nextHeight = Math.max(Math.ceil(currentOffsetY), this.MIN_NODE_HEIGHT) + this.TEXT_PADDING * 2;
         node.w = nextWidth;
         node.h = nextHeight;
         node.contents = nextContents;
@@ -273,7 +279,7 @@ export class EventCanvas extends DrawShape {
         const borderTop = parseFloat(style.borderTopWidth || '0') || 0;
         const borderBottom = parseFloat(style.borderBottomWidth || '0') || 0;
 
-        const measuredWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + borderLeft + borderRight + this.TEXT_WIDTH_SAFE_GAP;
+        const measuredWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + borderLeft + borderRight;
         const nextWidth = Math.max(minWidth, measuredWidth);
         this.textarea.style.width = `${nextWidth}px`;
 

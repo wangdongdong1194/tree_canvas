@@ -109,6 +109,7 @@ export class EventCanvas extends DrawShape {
             event.preventDefault();
             this.visibleElement.offsetX -= event.deltaX;
             this.visibleElement.offsetY -= event.deltaY;
+            this.visibleElement.setHoverNodeByPos(event.offsetX, event.offsetY);
             this.draw();
         }, { passive: false });
         window.addEventListener('keydown', (event) => {

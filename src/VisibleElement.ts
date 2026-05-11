@@ -31,8 +31,6 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     private hoveredNodeIdSet = new Set<string>();
     private visibleNodeIdSet = new Set<string>();
     private visibleLines: IVisibleLine[] = [];
-    private spatialIndex = new Map<string, Set<string>>();
-    private spatialCellSize = 320;
     private editorId: string = ''; // 编辑器ID
     constructor() {
         super('1');
@@ -52,38 +50,12 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         console.log('Selected nodes:', this.getSelectedNodeIds());
         console.log('Hovered nodes:', this.getHoveredNodeIds());
         console.log('Editor ID:', this.getEditorId());
-        console.log('Spatial index size:', this.spatialIndex.size);
     }
     setBoundary(top: number, left: number, right: number, bottom: number) {
         this.top = top;
         this.left = left;
         this.right = right;
         this.bottom = bottom;
-    }
-    rebuildSpatialIndex(cellSize: number = 320) {
-        this.spatialCellSize = Math.max(1, Math.floor(cellSize));
-        this.spatialIndex.clear();
-        for (const nodeId in this.data) {
-            const node = this.data[nodeId];
-            if (!node) {
-                continue;
-            }
-            const minCellX = Math.floor(node.x / this.spatialCellSize);
-            const maxCellX = Math.floor((node.x + node.w) / this.spatialCellSize);
-            const minCellY = Math.floor(node.y / this.spatialCellSize);
-            const maxCellY = Math.floor((node.y + node.h) / this.spatialCellSize);
-            for (let cx = minCellX; cx <= maxCellX; cx++) {
-                for (let cy = minCellY; cy <= maxCellY; cy++) {
-                    const key = `${cx},${cy}`;
-                    let bucket = this.spatialIndex.get(key);
-                    if (!bucket) {
-                        bucket = new Set<string>();
-                        this.spatialIndex.set(key, bucket);
-                    }
-                    bucket.add(nodeId);
-                }
-            }
-        }
     }
     calVisibleNodes() {
         this.visibleNodeIdSet.clear();

@@ -73,7 +73,6 @@ export class EventCanvas extends DrawShape {
             root.y = 50;
         }
         this.visibleElement.calculateNodePosition();
-        this.visibleElement.rebuildSpatialIndex();
         this.draw();
     }
     private initEvent() {
@@ -246,7 +245,6 @@ export class EventCanvas extends DrawShape {
         node.contents = nextContents;
         this.visibleElement.delEditorId();
         this.visibleElement.calculateNodePosition();
-        this.visibleElement.rebuildSpatialIndex();
         this.draw();
     }
     private normalizeTextLines(text: string) {

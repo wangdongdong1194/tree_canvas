@@ -2,10 +2,11 @@ import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
 import { VisibleElement } from "./VisibleElement";
 import { EventKey } from "./EventKey";
+import type { EventBus } from "./EventBus";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
-export class EventCanvas extends DrawShape {
+export class CoreCanvas extends DrawShape {
     private canvas: HTMLCanvasElement;
     private root: HTMLElement;
     private visibleElement = new VisibleElement();
@@ -21,8 +22,9 @@ export class EventCanvas extends DrawShape {
     private readonly MIN_NODE_HEIGHT = 30; // 节点的最小高度
     private ignoreNextEnterKeyup = false;
     private textarea: HTMLTextAreaElement;
+    private eventBus: EventBus;
 
-    constructor(root: HTMLElement, width: number, height: number) {
+    constructor(root: HTMLElement, width: number, height: number, eventBus: EventBus) {
         const devicePixelRatio = window.devicePixelRatio || 1;
         const canvas = document.createElement('canvas');
         canvas.width = width * devicePixelRatio;
@@ -37,6 +39,7 @@ export class EventCanvas extends DrawShape {
         } else {
             throw new Error('Failed to get canvas context');
         }
+        this.eventBus = eventBus;
         this.visibleElement.setBoundary(0, 0, width, height);
         this.root = root;
         this.canvas = canvas;
@@ -104,6 +107,7 @@ export class EventCanvas extends DrawShape {
             const curEditorId = this.visibleElement.getEditorId();
             if (preEditorId !== curEditorId) {
                 this.draw();
+                this.eventBus.publish({ eventType: 'dblclick' });
             }
         });
         this.canvas.addEventListener('wheel', (event) => {

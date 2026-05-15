@@ -128,7 +128,15 @@ export class CoreCanvas extends DrawShape {
                     this.draw();
                 } else {
                     // 若选中一个节点，则切换选中节点
-                    // this.draw();
+                    const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
+                    if (selectedNodeId) {
+                        // 获取目标方向的子节点id
+                        const nextId = this.visibleElement.getNeighborNodeId(selectedNodeId, event.key as ArrowKey);
+                        if (nextId) {
+                            this.visibleElement.setSelectedNodeIds([nextId]);
+                            this.draw();
+                        }
+                    }
                 }
             }
         });

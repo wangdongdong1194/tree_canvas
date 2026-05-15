@@ -270,4 +270,68 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     delEditorId() {
         this.editorId = '';
     }
+    /**
+     * 设置选中节点id集合
+     */
+    setSelectedNodeIds(ids: string[]) {
+        this.selectedNodeIdSet.clear();
+        for (const id of ids) {
+            if (this.data[id]) {
+                this.selectedNodeIdSet.add(id);
+            }
+        }
+    }
+    /**
+     * 获取指定节点在指定方向上的相邻节点id（上下左右）
+     * @param nodeId 当前节点id
+     * @param direction 方向 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
+     */
+    getNeighborNodeId(nodeId: string, direction: 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'): string | null {
+        const node = this.data[nodeId];
+        if (!node) {
+            return null;
+        }
+
+        // 左：父节点
+        if (direction === 'ArrowLeft') {
+            if (node.parentId && this.data[node.parentId]) {
+                return node.parentId;
+            }
+            return null;
+        }
+
+        // 右：第一个有效子节点（按 children 数组顺序）
+        if (direction === 'ArrowRight') {
+            for (const childId of node.children) {
+                if (this.data[childId]) {
+                    return childId;
+                }
+            }
+            return null;
+        }
+
+        // 上下：父节点 children 数组中的相邻兄弟
+        if (!node.parentId) {
+            return null;
+        }
+        const parentNode = this.data[node.parentId];
+        if (!parentNode) {
+            return null;
+        }
+
+        const siblings = parentNode.children.filter((id) => this.data[id]);
+        const idx = siblings.indexOf(nodeId);
+        if (idx === -1) {
+            return null;
+        }
+
+        if (direction === 'ArrowUp' && idx > 0) {
+            return siblings[idx - 1] ?? null;
+        }
+        if (direction === 'ArrowDown' && idx < siblings.length - 1) {
+            return siblings[idx + 1] ?? null;
+        }
+
+        return null;
+    }
 }

@@ -134,6 +134,7 @@ export class CoreCanvas extends DrawShape {
                         const nextId = this.visibleElement.getNeighborNodeId(selectedNodeId, event.key as ArrowKey);
                         if (nextId) {
                             this.visibleElement.setSelectedNodeIds([nextId]);
+                            this.visibleElement.ensureNodeVisible(nextId);
                             this.draw();
                         }
                     }

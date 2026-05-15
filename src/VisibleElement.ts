@@ -282,6 +282,151 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         }
     }
     /**
+     * 调整偏移量，确保指定节点落在可视区域内
+     */
+    ensureNodeVisible(nodeId: string, padding: number = 50): boolean {
+        const node = this.data[nodeId];
+        if (!node) {
+            return false;
+        }
+
+        const safePadding = Math.max(0, padding);
+        const minVisibleX = this.left + safePadding;
+        const maxVisibleX = this.right - safePadding;
+        const minVisibleY = this.top + safePadding;
+        const maxVisibleY = this.bottom - safePadding;
+
+        const availableWidth = maxVisibleX - minVisibleX;
+        const availableHeight = maxVisibleY - minVisibleY;
+        if (availableWidth <= 0 || availableHeight <= 0) {
+            return false;
+        }
+
+        const nodeScreenX = node.x + this.offsetX;
+        const nodeScreenY = node.y + this.offsetY;
+        const maxNodeX = maxVisibleX - node.w;
+        const maxNodeY = maxVisibleY - node.h;
+
+        const targetNodeX = maxNodeX >= minVisibleX
+            ? Math.min(Math.max(nodeScreenX, minVisibleX), maxNodeX)
+            : minVisibleX;
+        const targetNodeY = maxNodeY >= minVisibleY
+            ? Math.min(Math.max(nodeScreenY, minVisibleY), maxNodeY)
+            : minVisibleY;
+
+        const nextOffsetX = this.offsetX + (targetNodeX - nodeScreenX);
+        const nextOffsetY = this.offsetY + (targetNodeY - nodeScreenY);
+        if (nextOffsetX === this.offsetX && nextOffsetY === this.offsetY) {
+            return false;
+        }
+
+        this.offsetX = nextOffsetX;
+        this.offsetY = nextOffsetY;
+        return true;
+    }
+    private getNodeDepth(nodeId: string): number {
+        let depth = 0;
+        let current = this.data[nodeId];
+        const visited = new Set<string>();
+        while (current?.parentId) {
+            if (visited.has(current.id)) {
+                break;
+            }
+            visited.add(current.id);
+            const parent = this.data[current.parentId];
+            if (!parent) {
+                break;
+            }
+            depth += 1;
+            current = parent;
+        }
+        return depth;
+    }
+    private isAncestorNode(ancestorId: string, nodeId: string): boolean {
+        const visited = new Set<string>();
+        let current = this.data[nodeId];
+        while (current?.parentId) {
+            if (visited.has(current.id)) {
+                break;
+            }
+            visited.add(current.id);
+            if (current.parentId === ancestorId) {
+                return true;
+            }
+            current = this.data[current.parentId];
+        }
+        return false;
+    }
+    private getVerticalFallbackNodeId(nodeId: string, direction: 'ArrowUp' | 'ArrowDown'): string | null {
+        const currentNode = this.data[nodeId];
+        if (!currentNode) {
+            return null;
+        }
+
+        const currentCenterX = currentNode.x + currentNode.w / 2;
+        const currentCenterY = currentNode.y + currentNode.h / 2;
+        const currentDepth = this.getNodeDepth(nodeId);
+
+        let bestNodeId: string | null = null;
+        let bestDepthPriority = Number.POSITIVE_INFINITY;
+        let bestVerticalDistance = Number.POSITIVE_INFINITY;
+        let bestHorizontalDistance = Number.POSITIVE_INFINITY;
+
+        for (const candidateId in this.data) {
+            if (candidateId === nodeId) {
+                continue;
+            }
+            const candidate = this.data[candidateId];
+            if (!candidate) {
+                continue;
+            }
+            const candidateCenterY = candidate.y + candidate.h / 2;
+            const isInDirection = direction === 'ArrowUp'
+                ? candidateCenterY < currentCenterY
+                : candidateCenterY > currentCenterY;
+            if (!isInDirection) {
+                continue;
+            }
+            // 避免上下键走到同一分支的祖先/子孙，造成行为近似左右键。
+            if (direction === 'ArrowDown' && this.isAncestorNode(nodeId, candidateId)) {
+                continue;
+            }
+            if (direction === 'ArrowUp' && this.isAncestorNode(candidateId, nodeId)) {
+                continue;
+            }
+
+            const candidateDepth = this.getNodeDepth(candidateId);
+            const depthGap = candidateDepth - currentDepth;
+            let depthPriority = Number.POSITIVE_INFINITY;
+            if (depthGap === 0) {
+                depthPriority = 0;
+            } else if (depthGap === 1) {
+                depthPriority = 1;
+            } else if (depthGap === 2) {
+                depthPriority = 2;
+            }
+            if (!Number.isFinite(depthPriority)) {
+                continue;
+            }
+
+            const verticalDistance = Math.abs(candidateCenterY - currentCenterY);
+            const candidateCenterX = candidate.x + candidate.w / 2;
+            const horizontalDistance = Math.abs(candidateCenterX - currentCenterX);
+            const isBetter =
+                depthPriority < bestDepthPriority ||
+                (depthPriority === bestDepthPriority && verticalDistance < bestVerticalDistance) ||
+                (depthPriority === bestDepthPriority && verticalDistance === bestVerticalDistance && horizontalDistance < bestHorizontalDistance);
+            if (isBetter) {
+                bestNodeId = candidateId;
+                bestDepthPriority = depthPriority;
+                bestVerticalDistance = verticalDistance;
+                bestHorizontalDistance = horizontalDistance;
+            }
+        }
+
+        return bestNodeId;
+    }
+    /**
      * 获取指定节点在指定方向上的相邻节点id（上下左右）
      * @param nodeId 当前节点id
      * @param direction 方向 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight'
@@ -332,6 +477,6 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             return siblings[idx + 1] ?? null;
         }
 
-        return null;
+        return this.getVerticalFallbackNodeId(nodeId, direction);
     }
 }

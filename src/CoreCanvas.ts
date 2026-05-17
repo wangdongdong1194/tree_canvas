@@ -1,7 +1,7 @@
 import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
 import { VisibleElement } from "./VisibleElement";
-import { EventKey } from "./EventKey";
+import { CanEditorKeys, EventKey } from "./EventKey";
 import type { EventBus } from "./EventBus";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
@@ -85,12 +85,22 @@ export class CoreCanvas extends DrawShape {
             this.visibleElement.print();
         });
         this.canvas.addEventListener('mousedown', (event) => {
+            let selectChanged = false;
             const preSelectIds = [...this.visibleElement.getSelectedNodeIds()];
             this.visibleElement.setSelectNodeByPos(event.offsetX, event.offsetY, event.shiftKey);
             const curSelectIds = [...this.visibleElement.getSelectedNodeIds()];
             // 比较pre和cur是否一致，如果不一致则调用draw
             if (preSelectIds.length !== curSelectIds.length || !preSelectIds.every(id => curSelectIds.includes(id))) {
-                this.draw();
+                selectChanged = true;
+            }
+            if (selectChanged) {
+                // 如果选中状态改变了，且之前有选中节点，则提交编辑内容
+                const editorId = this.visibleElement.getEditorId();
+                if (editorId && curSelectIds.length === 1) {
+                    this.commitTextareaContent(editorId);
+                } else {
+                    this.draw();
+                }
             }
         });
         this.canvas.addEventListener('mousemove', (event) => {
@@ -180,7 +190,7 @@ export class CoreCanvas extends DrawShape {
         textarea.style.boxSizing = 'border-box';
         textarea.style.overflowY = 'hidden';
         textarea.style.outline = 'none';
-        textarea.style.border = '1px solid #00CDCD';
+        textarea.style.border = 'none';
         textarea.style.borderRadius = '4px';
         textarea.style.padding = `${this.TEXT_PADDING}px`;
         textarea.style.background = '#aaffcc';
@@ -210,7 +220,7 @@ export class CoreCanvas extends DrawShape {
             if (!node) {
                 return;
             }
-            this.commitTextareaContent(editorId, node.fontSize || 12);
+            this.commitTextareaContent(editorId);
         });
         textarea.addEventListener('compositionend', () => {
             const editorId = this.visibleElement.getEditorId();
@@ -231,17 +241,18 @@ export class CoreCanvas extends DrawShape {
         this.root.appendChild(textarea);
         return textarea;
     }
-    private commitTextareaContent(editorId: string, fontSize: number, rawText?: string) {
+    // 计算文本宽高度并更新节点数据，最后关闭编辑状态
+    private commitTextareaContent(editorId: string) {
         const node = this.visibleElement.getDataRef()[editorId];
         if (!node) {
             return;
         }
-        const lines = this.normalizeTextLines(rawText ?? this.textarea.value);
+        const lines = this.normalizeTextLines(this.textarea.value);
         let maxTextWidth = 0;
         let currentOffsetY = 0;
         const nextContents = lines.map((line) => {
             const text = line || '';
-            const metrics = this.measureText(text, fontSize);
+            const metrics = this.measureText(text, node.fontSize || 12);
             const measuredWidth = Math.max(
                 metrics.width,
                 metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight,
@@ -301,6 +312,7 @@ export class CoreCanvas extends DrawShape {
         const nextHeight = Math.max(minHeight, this.textarea.scrollHeight + borderTop + borderBottom);
         this.textarea.style.height = `${nextHeight}px`;
     }
+    // 同步textarea的位置和内容
     private syncTextareaByEditorId() {
         const editorId = this.visibleElement.getEditorId();
         if (!editorId) {
@@ -366,6 +378,7 @@ export class CoreCanvas extends DrawShape {
         this.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.visibleElement.calVisibleNodes();
         this.visibleElement.calVisibleLines();
+        // 同步编辑器位置和内容
         this.syncTextareaByEditorId();
         const data = this.visibleElement.getDataRef();
         const visibleNodeIds = this.visibleElement.getVisibleNodeIds();
@@ -400,7 +413,7 @@ export class CoreCanvas extends DrawShape {
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX - this.HOVERED_GAP;
                 const nodeY = node.y + this.visibleElement.offsetY - this.HOVERED_GAP;
-                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#00EEEE' });
+                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#EEEEEE' });
             }
         }
         // 绘制被选中节点
@@ -409,7 +422,7 @@ export class CoreCanvas extends DrawShape {
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX - this.SELECTED_GAP;
                 const nodeY = node.y + this.visibleElement.offsetY - this.SELECTED_GAP;
-                this.strokeRect(nodeX, nodeY, node.w + this.SELECTED_GAP * 2, node.h + this.SELECTED_GAP * 2, { radius: 4, strokeStyle: '#00CDCD' });
+                this.strokeRect(nodeX, nodeY, node.w + this.SELECTED_GAP * 2, node.h + this.SELECTED_GAP * 2, { radius: 4, strokeStyle: '#13CCDA' });
             }
         }
     }

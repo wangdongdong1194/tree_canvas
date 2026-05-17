@@ -45,7 +45,7 @@ export class CoreCanvas extends DrawShape {
         this.canvas = canvas;
         this.textarea = this.initTextarea();
         this.initEvent();
-        this.initDemo();
+        // this.initDemo();
         this.draw();
     }
     private initDemo() {
@@ -133,9 +133,8 @@ export class CoreCanvas extends DrawShape {
             }
             if (this.isArrowKey(event.key)) {
                 event.preventDefault();
-                if (event.shiftKey) { // 按住shift键滚动画布
-                    this.pressedArrowKeys.add(event.key as ArrowKey);
-                    this.draw();
+                if (event.shiftKey) { // 按住shift键新增节点
+                    this.addNode(event.key as ArrowKey);
                 } else {
                     // 若选中一个节点，则切换选中节点
                     const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
@@ -176,6 +175,26 @@ export class CoreCanvas extends DrawShape {
         window.addEventListener('blur', () => {
             this.pressedArrowKeys.clear();
         });
+    }
+    // 根据方向键添加新节点
+    private addNode(key: ArrowKey) {
+        const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
+        if (!selectedNodeId) {
+            return;
+        }
+        const direction = key === 'ArrowUp' ? 'top' :
+            key === 'ArrowDown' ? 'bottom' :
+                key === 'ArrowLeft' ? 'left' : 'right';
+        const paddings = + this.TEXT_PADDING * 2;
+        const id = `${this._TEMP_ID++}`;
+        this.visibleElement.addRight({
+            id,
+            w: this.MIN_NODE_WIDTH + paddings,
+            h: this.MIN_NODE_HEIGHT + paddings,
+        }, selectedNodeId, direction);
+        this.visibleElement.calculateNodePosition();
+        this.visibleElement.ensureNodeVisible(id);
+        this.draw();
     }
     private initTextarea() {
         const rootStyle = window.getComputedStyle(this.root);

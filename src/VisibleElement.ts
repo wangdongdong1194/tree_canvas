@@ -32,8 +32,8 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     private visibleNodeIdSet = new Set<string>();
     private visibleLines: IVisibleLine[] = [];
     private editorId: string = ''; // 编辑器ID
-    constructor() {
-        super('1');
+    constructor(rootId?: string) {
+        super(rootId || '1');
         this.data = this.getData(false);
     }
     getDataRef() {

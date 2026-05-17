@@ -1,7 +1,7 @@
 import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
 import { VisibleElement } from "./VisibleElement";
-import { CanEditorKeys, EventKey } from "./EventKey";
+import { EventKey } from "./EventKey";
 import type { EventBus } from "./EventBus";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
@@ -9,7 +9,7 @@ export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 export class CoreCanvas extends DrawShape {
     private canvas: HTMLCanvasElement;
     private root: HTMLElement;
-    private visibleElement = new VisibleElement();
+    private visibleElement;
     private _TEMP_ID = 2;
     private drawRequestId: number | null = null;
     private pressedArrowKeys = new Set<ArrowKey>();
@@ -40,43 +40,18 @@ export class CoreCanvas extends DrawShape {
             throw new Error('Failed to get canvas context');
         }
         this.eventBus = eventBus;
+        const rootId = '1';
+        this.visibleElement = new VisibleElement(rootId);
+        const rootEle = this.visibleElement.getDataRef()[rootId];
+        if (rootEle) {
+            rootEle.x = width / 2 - this.MIN_NODE_HEIGHT / 2 - this.TEXT_PADDING;
+            rootEle.y = height / 2 - this.MIN_NODE_HEIGHT / 2 - this.TEXT_PADDING;
+        }
         this.visibleElement.setBoundary(0, 0, width, height);
         this.root = root;
         this.canvas = canvas;
         this.textarea = this.initTextarea();
         this.initEvent();
-        // this.initDemo();
-        this.draw();
-    }
-    private initDemo() {
-        const firstNodeId = `${this._TEMP_ID++}`;
-        this.visibleElement.addRight({
-            id: firstNodeId,
-            w: Math.floor(Math.random() * 100) + 50,
-            h: Math.floor(Math.random() * 50) + 25,
-        }, '1', 'right');
-        const nonRootNodeIds = [firstNodeId];
-        const directions: AttachDirection[] = ['right', 'left', 'top', 'bottom'];
-        for (let i = 0; i < 20; i++) {
-            const attachId = nonRootNodeIds[Math.floor(Math.random() * nonRootNodeIds.length)];
-            if (!attachId) {
-                continue;
-            }
-            const direction = directions[i % directions.length] ?? 'right';
-            const newNodeId = `${this._TEMP_ID++}`;
-            this.visibleElement.addRight({
-                id: newNodeId,
-                w: Math.floor(Math.random() * 100) + 50,
-                h: Math.floor(Math.random() * 50) + 25,
-            }, attachId, direction);
-            nonRootNodeIds.push(newNodeId);
-        }
-        const root = this.visibleElement.getDataRef()['1'];
-        if (root) {
-            root.x = 50;
-            root.y = 50;
-        }
-        this.visibleElement.calculateNodePosition();
         this.draw();
     }
     private initEvent() {
@@ -96,7 +71,7 @@ export class CoreCanvas extends DrawShape {
             if (selectChanged) {
                 // 如果选中状态改变了，且之前有选中节点，则提交编辑内容
                 const editorId = this.visibleElement.getEditorId();
-                if (editorId && curSelectIds.length === 1) {
+                if (editorId && curSelectIds.length <= 1) {
                     this.commitTextareaContent(editorId);
                 } else {
                     this.draw();
@@ -192,6 +167,7 @@ export class CoreCanvas extends DrawShape {
             w: this.MIN_NODE_WIDTH + paddings,
             h: this.MIN_NODE_HEIGHT + paddings,
         }, selectedNodeId, direction);
+        this.visibleElement.setSelectedNodeIds([id]);
         this.visibleElement.calculateNodePosition();
         this.visibleElement.ensureNodeVisible(id);
         this.draw();

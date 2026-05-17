@@ -5,6 +5,7 @@ export enum EventKey {
     ArrowDown = 'ArrowDown',
     ArrowLeft = 'ArrowLeft',
     ArrowRight = 'ArrowRight',
+    Backspace = 'Backspace',
 }
 export enum EventCode {
     KeyBackquote = 'Backquote',

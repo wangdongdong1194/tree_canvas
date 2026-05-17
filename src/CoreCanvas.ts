@@ -23,6 +23,7 @@ export class CoreCanvas extends DrawShape {
     private ignoreNextEnterKeyup = false;
     private textarea: HTMLTextAreaElement;
     private eventBus: EventBus;
+    private rootId: string;
 
     constructor(root: HTMLElement, width: number, height: number, eventBus: EventBus) {
         const devicePixelRatio = window.devicePixelRatio || 1;
@@ -40,9 +41,9 @@ export class CoreCanvas extends DrawShape {
             throw new Error('Failed to get canvas context');
         }
         this.eventBus = eventBus;
-        const rootId = '1';
-        this.visibleElement = new VisibleElement(rootId);
-        const rootEle = this.visibleElement.getDataRef()[rootId];
+        this.rootId = '1';
+        this.visibleElement = new VisibleElement(this.rootId);
+        const rootEle = this.visibleElement.getDataRef()[this.rootId];
         if (rootEle) {
             rootEle.x = width / 2 - this.MIN_NODE_HEIGHT / 2 - this.TEXT_PADDING;
             rootEle.y = height / 2 - this.MIN_NODE_HEIGHT / 2 - this.TEXT_PADDING;
@@ -122,6 +123,26 @@ export class CoreCanvas extends DrawShape {
                             this.draw();
                         }
                     }
+                }
+            } else if (event.key === EventKey.Backspace) {
+                const selectedId = this.visibleElement.getSingleSelectedNodeId();
+                if (selectedId && selectedId !== this.rootId && this.visibleElement.getDataRef()[selectedId]) {
+                    const selectedEle = this.visibleElement.getDataRef()[selectedId];
+                    const children = selectedEle?.children || [];
+                    if (children.length && children[0]) {
+                        this.visibleElement.del(selectedId);
+                        this.visibleElement.setSelectedNodeIds([children[0]]);
+                        this.visibleElement.calculateNodePosition();
+                    } else {
+                        const parentId = selectedEle?.parentId;
+                        if (parentId) {
+                            this.visibleElement.del(selectedId);
+                            this.visibleElement.setSelectedNodeIds([parentId]);
+                            this.visibleElement.calculateNodePosition();
+                        }
+                    }
+
+                    this.draw();
                 }
             }
         });

@@ -123,14 +123,16 @@ export class CoreCanvas extends DrawShape {
                 } else {
                     // 若选中一个节点，则切换选中节点
                     const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
-                    if (selectedNodeId) {
-                        // 获取目标方向的子节点id
-                        const nextId = this.visibleElement.getNeighborNodeId(selectedNodeId, event.key as ArrowKey);
-                        if (nextId) {
-                            this.visibleElement.setSelectedNodeIds([nextId]);
-                            this.visibleElement.ensureNodeVisible(nextId);
-                            this.draw();
-                        }
+                    // 确定要选中的目标节点
+                    const targetNodeId = selectedNodeId
+                        ? this.visibleElement.getNeighborNodeId(selectedNodeId, event.key as ArrowKey)
+                        : this.rootId;
+
+                    // 存在目标节点则选中并滚动显示
+                    if (targetNodeId) {
+                        this.visibleElement.setSelectedNodeIds([targetNodeId]);
+                        this.visibleElement.ensureNodeVisible(targetNodeId);
+                        this.draw();
                     }
                 }
             } else if (event.key === EventKey.Backspace) {

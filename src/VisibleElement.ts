@@ -23,6 +23,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     private data: INodeData<IVisibleNode>;
     public offsetX = 0; // 偏移
     public offsetY = 0;
+    public zoom = 1; // 缩放
     private top = 0; // 边界
     private left = 0;
     private bottom = 0;
@@ -39,12 +40,42 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     getDataRef() {
         return this.data;
     }
+    private toScreenX(x: number) {
+        return x * this.zoom + this.offsetX;
+    }
+    private toScreenY(y: number) {
+        return y * this.zoom + this.offsetY;
+    }
+    private toWorldX(screenX: number) {
+        return (screenX - this.offsetX) / this.zoom;
+    }
+    private toWorldY(screenY: number) {
+        return (screenY - this.offsetY) / this.zoom;
+    }
+    setZoom(zoom: number, anchorX?: number, anchorY?: number) {
+        const safeZoom = Math.max(0.1, zoom);
+        if (safeZoom === this.zoom) {
+            return false;
+        }
+
+        if (anchorX !== undefined && anchorY !== undefined) {
+            const worldX = this.toWorldX(anchorX);
+            const worldY = this.toWorldY(anchorY);
+            this.zoom = safeZoom;
+            this.offsetX = anchorX - worldX * this.zoom;
+            this.offsetY = anchorY - worldY * this.zoom;
+            return true;
+        }
+
+        this.zoom = safeZoom;
+        return true;
+    }
     print() {
         console.log('');
         console.log('Current VisibleElement State:');
         console.log('Boundary set to:', { top: this.top, left: this.left, bottom: this.bottom, right: this.right });
         console.log(this.data);
-        console.log(this.offsetX, this.offsetY);
+        console.log(this.offsetX, this.offsetY, this.zoom);
         console.log('Visible nodes:', this.getVisibleNodeIds());
         console.log('Visible lines:', this.getVisibleLines());
         console.log('Selected nodes:', this.getSelectedNodeIds());
@@ -59,10 +90,10 @@ export class VisibleElement extends BaseData<IVisibleNode> {
     }
     calVisibleNodes() {
         this.visibleNodeIdSet.clear();
-        const viewLeft = this.left - this.offsetX;
-        const viewRight = this.right - this.offsetX;
-        const viewTop = this.top - this.offsetY;
-        const viewBottom = this.bottom - this.offsetY;
+        const viewLeft = this.toWorldX(this.left);
+        const viewRight = this.toWorldX(this.right);
+        const viewTop = this.toWorldY(this.top);
+        const viewBottom = this.toWorldY(this.bottom);
 
         if (this.spatialIndex.size === 0) {
             for (const nodeId in this.data) {
@@ -169,10 +200,10 @@ export class VisibleElement extends BaseData<IVisibleNode> {
                 continue;
             }
 
-            const x1 = parentNode.x + parentNode.w + this.offsetX;
-            const y1 = parentNode.y + lineDis + this.offsetY;
-            const x2 = childNode.x + this.offsetX;
-            const y2 = childNode.y + lineDis + this.offsetY;
+            const x1 = this.toScreenX(parentNode.x + parentNode.w);
+            const y1 = this.toScreenY(parentNode.y + lineDis);
+            const x2 = this.toScreenX(childNode.x);
+            const y2 = this.toScreenY(childNode.y + lineDis);
             const clippedLine = clipLineToViewport(x1, y1, x2, y2);
             if (!clippedLine) {
                 continue;
@@ -246,7 +277,11 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         if (!node) {
             return false;
         }
-        return x >= node.x + this.offsetX && x <= node.x + this.offsetX + node.w && y >= node.y + this.offsetY && y <= node.y + this.offsetY + node.h;
+        const screenX = this.toScreenX(node.x);
+        const screenY = this.toScreenY(node.y);
+        const screenW = node.w * this.zoom;
+        const screenH = node.h * this.zoom;
+        return x >= screenX && x <= screenX + screenW && y >= screenY && y <= screenY + screenH;
     }
     setEditorId(x: number, y: number) {
         for (const nodeId of this.getSelectedNodeIds()) {
@@ -302,10 +337,12 @@ export class VisibleElement extends BaseData<IVisibleNode> {
             return false;
         }
 
-        const nodeScreenX = node.x + this.offsetX;
-        const nodeScreenY = node.y + this.offsetY;
-        const maxNodeX = maxVisibleX - node.w;
-        const maxNodeY = maxVisibleY - node.h;
+        const nodeScreenX = this.toScreenX(node.x);
+        const nodeScreenY = this.toScreenY(node.y);
+        const nodeScreenW = node.w * this.zoom;
+        const nodeScreenH = node.h * this.zoom;
+        const maxNodeX = maxVisibleX - nodeScreenW;
+        const maxNodeY = maxVisibleY - nodeScreenH;
 
         const targetNodeX = maxNodeX >= minVisibleX
             ? Math.min(Math.max(nodeScreenX, minVisibleX), maxNodeX)

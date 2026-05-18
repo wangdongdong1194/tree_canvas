@@ -98,8 +98,17 @@ export class CoreCanvas extends DrawShape {
         });
         this.canvas.addEventListener('wheel', (event) => {
             event.preventDefault();
-            this.visibleElement.offsetX -= event.deltaX;
-            this.visibleElement.offsetY -= event.deltaY;
+            if (event.ctrlKey || event.metaKey) {
+                const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+                this.visibleElement.setZoom(
+                    this.visibleElement.zoom * zoomFactor,
+                    event.offsetX,
+                    event.offsetY,
+                );
+            } else {
+                this.visibleElement.offsetX -= event.deltaX;
+                this.visibleElement.offsetY -= event.deltaY;
+            }
             this.visibleElement.setHoverNodeByPos(event.offsetX, event.offsetY);
             this.draw();
         }, { passive: false });
@@ -344,17 +353,18 @@ export class CoreCanvas extends DrawShape {
             delete this.textarea.dataset.editorId;
             return;
         }
-        const x = node.x + this.visibleElement.offsetX;
-        const y = node.y + this.visibleElement.offsetY;
+        const zoom = this.visibleElement.zoom;
+        const x = node.x * zoom + this.visibleElement.offsetX;
+        const y = node.y * zoom + this.visibleElement.offsetY;
         this.textarea.style.left = `${x}px`;
         this.textarea.style.top = `${y}px`;
         this.textarea.style.display = 'block';
-        this.textarea.style.fontSize = `${node.fontSize || 12}px`;
-        this.textarea.style.lineHeight = `${(node.fontSize || 12) + this.LINE_HEIGHT_GAP}px`;
+        this.textarea.style.fontSize = `${(node.fontSize || 12) * zoom}px`;
+        this.textarea.style.lineHeight = `${((node.fontSize || 12) + this.LINE_HEIGHT_GAP) * zoom}px`;
+        this.resizeTextareaByContent(node.w * zoom, node.h * zoom, (node.fontSize || 12) * zoom);
         if (this.textarea.dataset.editorId !== editorId) {
             this.textarea.value = node.contents ? node.contents.map(content => content.text).join('\n') : '';
             this.textarea.dataset.editorId = editorId;
-            this.resizeTextareaByContent(node.w, node.h, node.fontSize || 12);
             this.textarea.select();
         }
     }
@@ -407,16 +417,31 @@ export class CoreCanvas extends DrawShape {
             }
             const node = data[nodeId];
             if (node) {
-                const nodeX = node.x + this.visibleElement.offsetX;
-                const nodeY = node.y + this.visibleElement.offsetY;
-                this.strokeRect(nodeX, nodeY, node.w, node.h, { radius: 4 });
+                const zoom = this.visibleElement.zoom;
+                const nodeX = node.x * zoom + this.visibleElement.offsetX;
+                const nodeY = node.y * zoom + this.visibleElement.offsetY;
+                const nodeW = node.w * zoom;
+                const nodeH = node.h * zoom;
+                this.strokeRect(nodeX, nodeY, nodeW, nodeH, { radius: 4 * zoom });
 
-                if (node.contents) {
-                    for (const content of node.contents) {
-                        this.text(content.text, nodeX + content.textOffsetX + this.TEXT_PADDING, nodeY + content.textOffsetY + this.TEXT_BASELINE_OFFSET, node.fontSize);
+                if (zoom > 0.4) { // 缩放过小则不绘制文本
+                    if (node.contents) {
+                        for (const content of node.contents) {
+                            this.text(
+                                content.text,
+                                nodeX + (content.textOffsetX + this.TEXT_PADDING) * zoom,
+                                nodeY + (content.textOffsetY + this.TEXT_BASELINE_OFFSET) * zoom,
+                                (node.fontSize || 12) * zoom,
+                            );
+                        }
+                    } else {
+                        this.text(
+                            node.id,
+                            nodeX + this.TEXT_PADDING * zoom,
+                            nodeY + this.TEXT_BASELINE_OFFSET * zoom,
+                            12 * zoom,
+                        );
                     }
-                } else {
-                    this.text(node.id, nodeX + this.TEXT_PADDING, nodeY + this.TEXT_BASELINE_OFFSET);
                 }
             }
         }
@@ -431,18 +456,20 @@ export class CoreCanvas extends DrawShape {
         for (const nodeId of this.visibleElement.getHoveredNodeIds()) {
             const node = data[nodeId];
             if (node) {
-                const nodeX = node.x + this.visibleElement.offsetX - this.HOVERED_GAP;
-                const nodeY = node.y + this.visibleElement.offsetY - this.HOVERED_GAP;
-                this.strokeRect(nodeX, nodeY, node.w + this.HOVERED_GAP * 2, node.h + this.HOVERED_GAP * 2, { radius: 4, strokeStyle: '#EEEEEE' });
+                const zoom = this.visibleElement.zoom;
+                const nodeX = node.x * zoom + this.visibleElement.offsetX - this.HOVERED_GAP * zoom;
+                const nodeY = node.y * zoom + this.visibleElement.offsetY - this.HOVERED_GAP * zoom;
+                this.strokeRect(nodeX, nodeY, node.w * zoom + this.HOVERED_GAP * 2 * zoom, node.h * zoom + this.HOVERED_GAP * 2 * zoom, { radius: 4 * zoom, strokeStyle: '#EEEEEE' });
             }
         }
         // 绘制被选中节点
         for (const nodeId of this.visibleElement.getSelectedNodeIds()) {
             const node = data[nodeId];
             if (node) {
-                const nodeX = node.x + this.visibleElement.offsetX - this.SELECTED_GAP;
-                const nodeY = node.y + this.visibleElement.offsetY - this.SELECTED_GAP;
-                this.strokeRect(nodeX, nodeY, node.w + this.SELECTED_GAP * 2, node.h + this.SELECTED_GAP * 2, { radius: 4, strokeStyle: '#13CCDA' });
+                const zoom = this.visibleElement.zoom;
+                const nodeX = node.x * zoom + this.visibleElement.offsetX - this.SELECTED_GAP * zoom;
+                const nodeY = node.y * zoom + this.visibleElement.offsetY - this.SELECTED_GAP * zoom;
+                this.strokeRect(nodeX, nodeY, node.w * zoom + this.SELECTED_GAP * 2 * zoom, node.h * zoom + this.SELECTED_GAP * 2 * zoom, { radius: 4 * zoom, strokeStyle: '#13CCDA' });
             }
         }
     }

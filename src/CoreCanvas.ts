@@ -399,8 +399,12 @@ export class CoreCanvas extends DrawShape {
         const data = this.visibleElement.getDataRef();
         const visibleNodeIds = this.visibleElement.getVisibleNodeIds();
         const visibleLines = this.visibleElement.getVisibleLines();
+        const editorId = this.visibleElement.getEditorId();
         // 绘制可视节点
         for (const nodeId of visibleNodeIds) {
+            if (nodeId === editorId) {
+                continue; // 编辑状态由textarea渲染，这里不绘制
+            }
             const node = data[nodeId];
             if (node) {
                 const nodeX = node.x + this.visibleElement.offsetX;

@@ -1,15 +1,15 @@
-import type { AttachDirection } from "ld_algorithm";
 import { DrawShape } from "./DrawShape";
-import { VisibleElement } from "./VisibleElement";
+import { VisibleElement, type IVisibleNode } from "./VisibleElement";
 import { EventKey } from "./EventKey";
 import type { EventBus } from "./EventBus";
+import type { INodeData } from "ld_algorithm";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
 export class CoreCanvas extends DrawShape {
     private canvas: HTMLCanvasElement;
     private root: HTMLElement;
-    private visibleElement;
+    private visibleElement: VisibleElement;
     private _TEMP_ID = 2;
     private drawRequestId: number | null = null;
     private pressedArrowKeys = new Set<ArrowKey>();
@@ -25,7 +25,7 @@ export class CoreCanvas extends DrawShape {
     private eventBus: EventBus;
     private rootId: string;
 
-    constructor(root: HTMLElement, width: number, height: number, eventBus: EventBus) {
+    constructor(root: HTMLElement, width: number, height: number, rootId: string, eventBus: EventBus) {
         const devicePixelRatio = window.devicePixelRatio || 1;
         const canvas = document.createElement('canvas');
         canvas.width = width * devicePixelRatio;
@@ -41,7 +41,7 @@ export class CoreCanvas extends DrawShape {
             throw new Error('Failed to get canvas context');
         }
         this.eventBus = eventBus;
-        this.rootId = '1';
+        this.rootId = rootId;
         this.visibleElement = new VisibleElement(this.rootId);
         const rootEle = this.visibleElement.getDataRef()[this.rootId];
         if (rootEle) {
@@ -473,6 +473,11 @@ export class CoreCanvas extends DrawShape {
             }
         }
     }
+    /**
+     * 调整画布大小
+     * @param width 
+     * @param height 
+     */
     public resize(width: number, height: number) {
         const devicePixelRatio = window.devicePixelRatio || 1;
         this.canvas.width = width * devicePixelRatio;
@@ -482,5 +487,56 @@ export class CoreCanvas extends DrawShape {
         this.scale(devicePixelRatio, devicePixelRatio);
         this.visibleElement.setBoundary(0, 0, width, height);
         this.draw();
+    }
+    /**
+     * 初始化数据，data的key为节点id，value为节点数据。rootId为根节点id，必须在data中存在
+     * @param data 
+     * @param rootId 
+     */
+    public initData(data: INodeData<IVisibleNode>, rootId: string = this.rootId) {
+        if (!this.rootId || !data[rootId] || this.rootId !== rootId) {
+            throw new Error(`initData failed: root node ${rootId} not found`);
+        }
+
+        const dataRef = this.visibleElement.getDataRef();
+        for (const key in dataRef) {
+            delete dataRef[key];
+        }
+
+        for (const key in data) {
+            const node = data[key];
+            if (!node?.id) {
+                continue;
+            }
+            dataRef[key] = {
+                id: node.id,
+                w: node.w ?? this.MIN_NODE_WIDTH + this.TEXT_PADDING * 2,
+                h: node.h ?? this.MIN_NODE_HEIGHT + this.TEXT_PADDING * 2,
+                x: 0, // 先把所有节点放在(0, 0)，后续调用calculateNodePosition计算实际位置
+                y: 0,
+                sh: node.sh ?? 0,
+                parentId: node.parentId ?? null,
+                children: node.children ? [...node.children] : [],
+                fontSize: node.fontSize ?? 12,
+                contents: node.contents ? [...node.contents] : [],
+            };
+        }
+
+        this.rootId = rootId;
+        this.visibleElement.delEditorId();
+        this.visibleElement.setSelectedNodeIds([rootId]);
+        this.visibleElement.calculateNodePosition();
+        this.visibleElement.ensureNodeVisible(rootId);
+
+        const maxNumericId = Object.keys(dataRef).reduce((max, id) => {
+            const num = Number(id);
+            return Number.isInteger(num) ? Math.max(max, num) : max;
+        }, 1);
+        this._TEMP_ID = maxNumericId + 1;
+
+        this.draw();
+    }
+    public getData() {
+        return this.visibleElement.getData(true);
     }
 }

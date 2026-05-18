@@ -81,6 +81,7 @@ export class VisibleElement extends BaseData<IVisibleNode> {
         console.log('Selected nodes:', this.getSelectedNodeIds());
         console.log('Hovered nodes:', this.getHoveredNodeIds());
         console.log('Editor ID:', this.getEditorId());
+        console.log(JSON.stringify({ data: this.data }, null, 2));
     }
     setBoundary(top: number, left: number, right: number, bottom: number) {
         this.top = top;

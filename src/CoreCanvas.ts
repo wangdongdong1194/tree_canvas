@@ -6,6 +6,51 @@ import type { INodeData } from "tree_algorithm";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
+type AddDirection = 'top' | 'bottom' | 'left' | 'right';
+type NodeContent = IVisibleNode['contents'][number];
+
+interface IAddNodeCommand {
+    type: 'add';
+    node: IVisibleNode;
+    attachId: string;
+    direction: AddDirection;
+    attachChildrenBefore: string[];
+    parentIdBefore: string | null;
+    parentChildrenBefore: string[];
+    selectedBefore: string[];
+    selectedAfter: string[];
+}
+
+interface IDeleteNodeCommand {
+    type: 'delete';
+    deletedNode: IVisibleNode;
+    parentId: string;
+    parentChildrenBefore: string[];
+    parentChildrenAfter: string[];
+    promotedChildren: string[];
+    selectedBefore: string[];
+    selectedAfter: string[];
+}
+
+interface IEditNodeCommand {
+    type: 'edit';
+    nodeId: string;
+    before: {
+        w: number;
+        h: number;
+        contents: NodeContent[];
+    };
+    after: {
+        w: number;
+        h: number;
+        contents: NodeContent[];
+    };
+    selectedBefore: string[];
+    selectedAfter: string[];
+}
+
+type ICanvasCommand = IAddNodeCommand | IDeleteNodeCommand | IEditNodeCommand;
+
 export class CoreCanvas extends DrawShape {
     private canvas: HTMLCanvasElement;
     private root: HTMLElement;
@@ -24,6 +69,9 @@ export class CoreCanvas extends DrawShape {
     private textarea: HTMLTextAreaElement;
     private eventBus: EventBus;
     private rootId: string;
+    private readonly HISTORY_LIMIT = 100;
+    private historyPast: ICanvasCommand[] = [];
+    private historyFuture: ICanvasCommand[] = [];
 
     constructor(root: HTMLElement, width: number, height: number, rootId: string, eventBus: EventBus) {
         const devicePixelRatio = window.devicePixelRatio || 1;
@@ -116,6 +164,9 @@ export class CoreCanvas extends DrawShape {
             if (this.visibleElement.getEditorId()) {
                 return; // 编辑状态下不响应键盘事件
             }
+            if (this.handleUndoRedoKeydown(event)) {
+                return;
+            }
             if (this.isArrowKey(event.key)) {
                 event.preventDefault();
                 if (event.shiftKey) { // 按住shift键新增节点
@@ -136,25 +187,7 @@ export class CoreCanvas extends DrawShape {
                     }
                 }
             } else if (event.key === EventKey.Backspace) {
-                const selectedId = this.visibleElement.getSingleSelectedNodeId();
-                if (selectedId && selectedId !== this.rootId && this.visibleElement.getDataRef()[selectedId]) {
-                    const selectedEle = this.visibleElement.getDataRef()[selectedId];
-                    const children = selectedEle?.children || [];
-                    if (children.length && children[0]) {
-                        this.visibleElement.del(selectedId);
-                        this.visibleElement.setSelectedNodeIds([children[0]]);
-                        this.visibleElement.calculateNodePosition();
-                    } else {
-                        const parentId = selectedEle?.parentId;
-                        if (parentId) {
-                            this.visibleElement.del(selectedId);
-                            this.visibleElement.setSelectedNodeIds([parentId]);
-                            this.visibleElement.calculateNodePosition();
-                        }
-                    }
-
-                    this.draw();
-                }
+                this.deleteSelectedNode();
             }
         });
         window.addEventListener('keyup', (event) => {
@@ -183,26 +216,307 @@ export class CoreCanvas extends DrawShape {
             this.pressedArrowKeys.clear();
         });
     }
+    private handleUndoRedoKeydown(event: KeyboardEvent) {
+        const isModifierPressed = event.metaKey || event.ctrlKey;
+        if (!isModifierPressed || event.altKey) {
+            return false;
+        }
+        const key = event.key.toLowerCase();
+        const isUndo = key === 'z' && !event.shiftKey;
+        const isRedoByShiftZ = key === 'z' && event.shiftKey;
+        const isRedoByY = key === 'y' && !event.shiftKey;
+
+        if (!isUndo && !isRedoByShiftZ && !isRedoByY) {
+            return false;
+        }
+
+        event.preventDefault();
+        if (isUndo) {
+            return this.undo();
+        }
+        return this.redo();
+    }
+    private cloneNodeData(node: IVisibleNode): IVisibleNode {
+        return {
+            ...node,
+            children: [...node.children],
+            contents: (node.contents || []).map((content) => ({ ...content })),
+        };
+    }
+    private cloneNodeContents(contents: NodeContent[]): NodeContent[] {
+        return contents.map((content) => ({ ...content }));
+    }
+    private setSelectedNodeIdsAndEnsureVisible(ids: string[]) {
+        this.visibleElement.setSelectedNodeIds(ids);
+        const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
+        if (selectedNodeId) {
+            this.visibleElement.ensureNodeVisible(selectedNodeId);
+        }
+    }
+    private pushHistoryCommand(command: ICanvasCommand) {
+        this.historyPast.push(command);
+        if (this.historyPast.length > this.HISTORY_LIMIT) {
+            this.historyPast.shift();
+        }
+        this.historyFuture = [];
+    }
+    private applyCommand(command: ICanvasCommand, mode: 'undo' | 'redo') {
+        if (command.type === 'add') {
+            return mode === 'redo' ? this.applyAddCommand(command) : this.revertAddCommand(command);
+        }
+        if (command.type === 'delete') {
+            return mode === 'redo' ? this.applyDeleteCommand(command) : this.revertDeleteCommand(command);
+        }
+        return mode === 'redo' ? this.applyEditCommand(command) : this.revertEditCommand(command);
+    }
+    private undo() {
+        const command = this.historyPast.pop();
+        if (!command) {
+            return false;
+        }
+        const applied = this.applyCommand(command, 'undo');
+        if (!applied) {
+            this.historyPast.push(command);
+            return false;
+        }
+        this.historyFuture.push(command);
+        return true;
+    }
+    private redo() {
+        const command = this.historyFuture.pop();
+        if (!command) {
+            return false;
+        }
+        const applied = this.applyCommand(command, 'redo');
+        if (!applied) {
+            this.historyFuture.push(command);
+            return false;
+        }
+        this.historyPast.push(command);
+        return true;
+    }
+    private applyAddCommand(command: IAddNodeCommand) {
+        const node = this.cloneNodeData(command.node);
+        const added = this.visibleElement.addRight(
+            {
+                ...node,
+                children: [],
+                parentId: null,
+                sh: 0,
+                x: 0,
+                y: 0,
+            },
+            command.attachId,
+            command.direction,
+        );
+        if (!added) {
+            return false;
+        }
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedAfter);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private revertAddCommand(command: IAddNodeCommand) {
+        const dataRef = this.visibleElement.getDataRef();
+        const attachNode = dataRef[command.attachId];
+        if (!attachNode || !dataRef[command.node.id]) {
+            return false;
+        }
+
+        if (command.direction === 'right') {
+            attachNode.children = [...command.attachChildrenBefore];
+            for (const childId of attachNode.children) {
+                const child = dataRef[childId];
+                if (child) {
+                    child.parentId = command.attachId;
+                }
+            }
+        } else {
+            const parentId = command.parentIdBefore;
+            if (parentId) {
+                const parentNode = dataRef[parentId];
+                if (!parentNode) {
+                    return false;
+                }
+                parentNode.children = [...command.parentChildrenBefore];
+            }
+            attachNode.parentId = command.parentIdBefore;
+        }
+
+        delete dataRef[command.node.id];
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedBefore);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private applyDeleteCommand(command: IDeleteNodeCommand) {
+        const dataRef = this.visibleElement.getDataRef();
+        const node = dataRef[command.deletedNode.id];
+        const parentNode = dataRef[command.parentId];
+        if (!node || !parentNode) {
+            return false;
+        }
+
+        parentNode.children = [...command.parentChildrenAfter];
+        for (const childId of command.promotedChildren) {
+            const child = dataRef[childId];
+            if (child) {
+                child.parentId = command.parentId;
+            }
+        }
+        delete dataRef[command.deletedNode.id];
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedAfter);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private revertDeleteCommand(command: IDeleteNodeCommand) {
+        const dataRef = this.visibleElement.getDataRef();
+        const parentNode = dataRef[command.parentId];
+        if (!parentNode) {
+            return false;
+        }
+
+        dataRef[command.deletedNode.id] = this.cloneNodeData(command.deletedNode);
+        parentNode.children = [...command.parentChildrenBefore];
+        for (const childId of command.promotedChildren) {
+            const child = dataRef[childId];
+            if (child) {
+                child.parentId = command.deletedNode.id;
+            }
+        }
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedBefore);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private applyEditCommand(command: IEditNodeCommand) {
+        const node = this.visibleElement.getDataRef()[command.nodeId];
+        if (!node) {
+            return false;
+        }
+        node.w = command.after.w;
+        node.h = command.after.h;
+        node.contents = this.cloneNodeContents(command.after.contents);
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedAfter);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private revertEditCommand(command: IEditNodeCommand) {
+        const node = this.visibleElement.getDataRef()[command.nodeId];
+        if (!node) {
+            return false;
+        }
+        node.w = command.before.w;
+        node.h = command.before.h;
+        node.contents = this.cloneNodeContents(command.before.contents);
+        this.visibleElement.calculateNodePosition();
+        this.setSelectedNodeIdsAndEnsureVisible(command.selectedBefore);
+        this.visibleElement.delEditorId();
+        this.draw();
+        return true;
+    }
+    private deleteSelectedNode() {
+        const selectedId = this.visibleElement.getSingleSelectedNodeId();
+        if (!selectedId || selectedId === this.rootId) {
+            return;
+        }
+        const dataRef = this.visibleElement.getDataRef();
+        const node = dataRef[selectedId];
+        if (!node || !node.parentId) {
+            return;
+        }
+        const parentNode = dataRef[node.parentId];
+        if (!parentNode) {
+            return;
+        }
+        const parentChildrenBefore = [...parentNode.children];
+        const idx = parentChildrenBefore.indexOf(selectedId);
+        if (idx === -1) {
+            return;
+        }
+        const promotedChildren = [...node.children];
+        const parentChildrenAfter = [
+            ...parentChildrenBefore.slice(0, idx),
+            ...promotedChildren,
+            ...parentChildrenBefore.slice(idx + 1),
+        ];
+        const selectedBefore = [...this.visibleElement.getSelectedNodeIds()];
+        const selectedAfter = node.children.length > 0 && node.children[0] ? [node.children[0]] : [node.parentId];
+
+        const command: IDeleteNodeCommand = {
+            type: 'delete',
+            deletedNode: this.cloneNodeData(node),
+            parentId: node.parentId,
+            parentChildrenBefore,
+            parentChildrenAfter,
+            promotedChildren,
+            selectedBefore,
+            selectedAfter,
+        };
+
+        if (this.applyDeleteCommand(command)) {
+            this.pushHistoryCommand(command);
+        }
+    }
+    private resetHistory() {
+        this.historyPast = [];
+        this.historyFuture = [];
+    }
     // 根据方向键添加新节点
     private addNode(key: ArrowKey) {
         const selectedNodeId = this.visibleElement.getSingleSelectedNodeId();
         if (!selectedNodeId) {
             return;
         }
+        const dataRef = this.visibleElement.getDataRef();
+        const selectedNode = dataRef[selectedNodeId];
+        if (!selectedNode) {
+            return;
+        }
+        const parentNode = selectedNode.parentId ? dataRef[selectedNode.parentId] : undefined;
         const direction = key === 'ArrowUp' ? 'top' :
             key === 'ArrowDown' ? 'bottom' :
                 key === 'ArrowLeft' ? 'left' : 'right';
         const paddings = + this.TEXT_PADDING * 2;
-        const id = `${this._TEMP_ID++}`;
-        this.visibleElement.addRight({
-            id,
-            w: this.MIN_NODE_WIDTH + paddings,
-            h: this.MIN_NODE_HEIGHT + paddings,
-        }, selectedNodeId, direction);
-        this.visibleElement.setSelectedNodeIds([id]);
-        this.visibleElement.calculateNodePosition();
-        this.visibleElement.ensureNodeVisible(id);
-        this.draw();
+        const id = `${this._TEMP_ID}`;
+        const command: IAddNodeCommand = {
+            type: 'add',
+            node: {
+                id,
+                w: this.MIN_NODE_WIDTH + paddings,
+                h: this.MIN_NODE_HEIGHT + paddings,
+                x: 0,
+                y: 0,
+                sh: 0,
+                parentId: null,
+                children: [],
+                fontSize: 12,
+                contents: [],
+            },
+            attachId: selectedNodeId,
+            direction,
+            attachChildrenBefore: [...selectedNode.children],
+            parentIdBefore: selectedNode.parentId,
+            parentChildrenBefore: parentNode
+                ? [...parentNode.children]
+                : [],
+            selectedBefore: [...this.visibleElement.getSelectedNodeIds()],
+            selectedAfter: [id],
+        };
+        const added = this.applyAddCommand(command);
+        if (!added) {
+            return;
+        }
+        this.pushHistoryCommand(command);
+        this._TEMP_ID += 1;
     }
     private initTextarea() {
         const rootStyle = window.getComputedStyle(this.root);
@@ -298,12 +612,36 @@ export class CoreCanvas extends DrawShape {
         }
         const nextWidth = Math.max(Math.ceil(maxTextWidth), this.MIN_NODE_WIDTH) + this.TEXT_PADDING * 2;
         const nextHeight = Math.max(Math.ceil(currentOffsetY), this.MIN_NODE_HEIGHT) + this.TEXT_PADDING * 2;
-        node.w = nextWidth;
-        node.h = nextHeight;
-        node.contents = nextContents;
-        this.visibleElement.delEditorId();
-        this.visibleElement.calculateNodePosition();
-        this.draw();
+
+        const currentContents = JSON.stringify(node.contents || []);
+        const nextContentsJson = JSON.stringify(nextContents);
+        const changed = node.w !== nextWidth || node.h !== nextHeight || currentContents !== nextContentsJson;
+        if (!changed) {
+            this.visibleElement.delEditorId();
+            this.draw();
+            return;
+        }
+
+        const selectedIds = [...this.visibleElement.getSelectedNodeIds()];
+        const command: IEditNodeCommand = {
+            type: 'edit',
+            nodeId: editorId,
+            before: {
+                w: node.w,
+                h: node.h,
+                contents: this.cloneNodeContents(node.contents || []),
+            },
+            after: {
+                w: nextWidth,
+                h: nextHeight,
+                contents: this.cloneNodeContents(nextContents),
+            },
+            selectedBefore: selectedIds,
+            selectedAfter: selectedIds,
+        };
+        if (this.applyEditCommand(command)) {
+            this.pushHistoryCommand(command);
+        }
     }
     private normalizeTextLines(text: string) {
         const lines = text.split('\n');
@@ -535,6 +873,7 @@ export class CoreCanvas extends DrawShape {
             return Number.isInteger(num) ? Math.max(max, num) : max;
         }, 1);
         this._TEMP_ID = maxNumericId + 1;
+        this.resetHistory();
 
         this.draw();
     }

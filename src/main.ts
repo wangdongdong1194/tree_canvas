@@ -1,7 +1,7 @@
 import { EventBus } from './EventBus';
 import { CoreCanvas } from './CoreCanvas';
 import type { IVisibleNode } from './VisibleElement';
-import type { INodeData } from 'ld_algorithm';
+import type { INodeData } from 'tree_algorithm';
 
 (function main() {
     const canvasRoot = document.querySelector<HTMLDivElement>('#canvas-root');

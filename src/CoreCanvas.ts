@@ -2,7 +2,7 @@ import { DrawShape } from "./DrawShape";
 import { VisibleElement, type IVisibleNode } from "./VisibleElement";
 import { EventKey } from "./EventKey";
 import type { EventBus } from "./EventBus";
-import type { INodeData } from "ld_algorithm";
+import type { INodeData } from "tree_algorithm";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 

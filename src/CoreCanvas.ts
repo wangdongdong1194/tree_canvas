@@ -5,6 +5,7 @@ import type { EventBus } from "./EventBus";
 import type { INodeData } from "tree_algorithm";
 import type { IAddNodeCommand, IDeleteNodeCommand, IEditNodeCommand, NodeContent } from "./history/CanvasCommand";
 import { CanvasHistoryManager } from "./history/CanvasHistoryManager";
+import { RichTextCanvas } from "rich_text_canvas";
 
 export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
@@ -23,7 +24,8 @@ export class CoreCanvas extends DrawShape {
     private readonly MIN_NODE_WIDTH = 80; // 节点的最小宽度
     private readonly MIN_NODE_HEIGHT = 30; // 节点的最小高度
     private ignoreNextEnterKeyup = false;
-    private textarea: HTMLTextAreaElement;
+    private richTextCanvas: RichTextCanvas;
+    private _CURRENT_EDITOR_ID: string | null = null;
     private eventBus: EventBus;
     private rootId: string;
     private readonly HISTORY_LIMIT = 100;
@@ -56,7 +58,7 @@ export class CoreCanvas extends DrawShape {
         this.historyManager = new CanvasHistoryManager(this.visibleElement, () => this.draw(), this.HISTORY_LIMIT);
         this.root = root;
         this.canvas = canvas;
-        this.textarea = this.initTextarea();
+        this.richTextCanvas = new RichTextCanvas(root, {});
         this.initEvent();
         this.draw();
     }
@@ -156,6 +158,8 @@ export class CoreCanvas extends DrawShape {
                     this.draw();
                 }
             } else if (event.key === EventKey.Enter) {
+
+                console.log('enter keyup');
                 if (this.ignoreNextEnterKeyup) {
                     this.ignoreNextEnterKeyup = false;
                     return;
@@ -171,6 +175,18 @@ export class CoreCanvas extends DrawShape {
         });
         window.addEventListener('blur', () => {
             this.pressedArrowKeys.clear();
+        });
+        this.richTextCanvas.addEventListener('stop', () => {
+            this.ignoreNextEnterKeyup = true;
+            const editorId = this.visibleElement.getEditorId();
+            if (!editorId) {
+                return;
+            }
+            const node = this.visibleElement.getDataRef()[editorId];
+            if (!node) {
+                return;
+            }
+            this.commitTextareaContent(editorId);
         });
     }
     private handleUndoRedoKeydown(event: KeyboardEvent) {
@@ -292,77 +308,13 @@ export class CoreCanvas extends DrawShape {
             this._TEMP_ID += 1;
         }
     }
-    private initTextarea() {
-        const rootStyle = window.getComputedStyle(this.root);
-        if (rootStyle.position === 'static') {
-            this.root.style.position = 'relative';
-        }
-        const textarea = document.createElement('textarea');
-        textarea.style.position = 'absolute';
-        textarea.style.display = 'none';
-        textarea.style.zIndex = '10';
-        textarea.style.resize = 'none';
-        textarea.style.boxSizing = 'border-box';
-        textarea.style.overflowY = 'hidden';
-        textarea.style.outline = 'none';
-        textarea.style.border = 'none';
-        textarea.style.borderRadius = '4px';
-        textarea.style.padding = `${this.TEXT_PADDING}px`;
-        textarea.style.background = '#aaffcc';
-        textarea.style.fontSize = '14px';
-        textarea.addEventListener('input', () => {
-            const editorId = this.visibleElement.getEditorId();
-            if (!editorId) {
-                return;
-            }
-            const node = this.visibleElement.getDataRef()[editorId];
-            if (!node) {
-                return;
-            }
-            this.resizeTextareaByContent(node.w, node.h, node.fontSize || 12);
-        });
-        textarea.addEventListener('keydown', (event) => {
-            if (event.key !== EventKey.Enter || event.shiftKey) {
-                return;
-            }
-            event.preventDefault();
-            this.ignoreNextEnterKeyup = true;
-            const editorId = this.visibleElement.getEditorId();
-            if (!editorId) {
-                return;
-            }
-            const node = this.visibleElement.getDataRef()[editorId];
-            if (!node) {
-                return;
-            }
-            this.commitTextareaContent(editorId);
-        });
-        textarea.addEventListener('compositionend', () => {
-            const editorId = this.visibleElement.getEditorId();
-            if (!editorId) {
-                return;
-            }
-            const node = this.visibleElement.getDataRef()[editorId];
-            if (!node) {
-                return;
-            }
-            this.resizeTextareaByContent(node.w, node.h, node.fontSize || 12);
-        });
-        textarea.addEventListener('keyup', (event) => {
-            if (event.key !== EventKey.Enter || event.shiftKey) {
-                return;
-            }
-        });
-        this.root.appendChild(textarea);
-        return textarea;
-    }
     // 计算文本宽高度并更新节点数据，最后关闭编辑状态
     private commitTextareaContent(editorId: string) {
         const node = this.visibleElement.getDataRef()[editorId];
         if (!node) {
             return;
         }
-        const lines = this.normalizeTextLines(this.textarea.value);
+        const lines = this.normalizeTextLines(this.richTextCanvas.getText());
         let maxTextWidth = 0;
         let currentOffsetY = 0;
         const nextContents = lines.map((line) => {
@@ -422,62 +374,29 @@ export class CoreCanvas extends DrawShape {
         }
         return lines;
     }
-    private resizeTextareaByContent(minWidth: number, minHeight: number, fontSize: number) {
-        const lines = this.textarea.value.split('\n');
-        let maxTextWidth = 0;
-        for (let i = 0; i < lines.length; i++) {
-            const text = lines[i] || '';
-            const metrics = this.measureText(text, fontSize);
-            const measuredWidth = Math.max(
-                metrics.width,
-                metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight,
-            );
-            maxTextWidth = Math.max(maxTextWidth, measuredWidth);
-        }
-        const style = window.getComputedStyle(this.textarea);
-        const borderLeft = parseFloat(style.borderLeftWidth || '0') || 0;
-        const borderRight = parseFloat(style.borderRightWidth || '0') || 0;
-        const borderTop = parseFloat(style.borderTopWidth || '0') || 0;
-        const borderBottom = parseFloat(style.borderBottomWidth || '0') || 0;
-
-        const measuredWidth = Math.ceil(maxTextWidth) + this.TEXT_PADDING * 2 + borderLeft + borderRight;
-        const nextWidth = Math.max(minWidth, measuredWidth);
-        this.textarea.style.width = `${nextWidth}px`;
-
-        // Use the DOM layout result to avoid clipping descenders at the bottom.
-        this.textarea.style.height = 'auto';
-        const nextHeight = Math.max(minHeight, this.textarea.scrollHeight + borderTop + borderBottom);
-        this.textarea.style.height = `${nextHeight}px`;
-    }
     // 同步textarea的位置和内容
     private syncTextareaByEditorId() {
         const editorId = this.visibleElement.getEditorId();
         if (!editorId) {
-            this.textarea.style.display = 'none';
-            this.textarea.value = '';
-            delete this.textarea.dataset.editorId;
+            console.log('no editor');
+            this._CURRENT_EDITOR_ID = null;
+            this.richTextCanvas.hide();
             return;
         }
         const node = this.visibleElement.getDataRef()[editorId];
         if (!node) {
-            this.textarea.style.display = 'none';
-            this.textarea.value = '';
-            delete this.textarea.dataset.editorId;
+            this._CURRENT_EDITOR_ID = null;
+            this.richTextCanvas.hide();
             return;
         }
         const zoom = this.visibleElement.zoom;
         const x = node.x * zoom + this.visibleElement.offsetX;
         const y = node.y * zoom + this.visibleElement.offsetY;
-        this.textarea.style.left = `${x}px`;
-        this.textarea.style.top = `${y}px`;
-        this.textarea.style.display = 'block';
-        this.textarea.style.fontSize = `${(node.fontSize || 12) * zoom}px`;
-        this.textarea.style.lineHeight = `${((node.fontSize || 12) + this.LINE_HEIGHT_GAP) * zoom}px`;
-        this.resizeTextareaByContent(node.w * zoom, node.h * zoom, (node.fontSize || 12) * zoom);
-        if (this.textarea.dataset.editorId !== editorId) {
-            this.textarea.value = node.contents ? node.contents.map(content => content.text).join('\n') : '';
-            this.textarea.dataset.editorId = editorId;
-            this.textarea.select();
+        if (this._CURRENT_EDITOR_ID !== editorId) {
+            this.richTextCanvas.setText(node.contents ? node.contents.map(content => content.text).join('\n') : '')
+            this._CURRENT_EDITOR_ID = editorId;
+
+            this.richTextCanvas.show(x, y);
         }
     }
     private isArrowKey(key: string) {

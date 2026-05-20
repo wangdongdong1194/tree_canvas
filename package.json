@@ -17,6 +17,7 @@
     "vite": "^8.0.11"
   },
   "dependencies": {
+    "rich_text_canvas": "^1.0.6",
     "tree_algorithm": "^1.0.0"
   }
 }

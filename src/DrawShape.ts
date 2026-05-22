@@ -74,4 +74,7 @@ export abstract class DrawShape {
     scale(x: number, y: number) {
         this._ctx.scale(x, y);
     }
+    protected get ctx() {
+        return this._ctx;
+    }
 }

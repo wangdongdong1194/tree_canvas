@@ -1,4 +1,4 @@
-import { BaseData, type IBaseData, type INodeData } from "tree_algorithm";
+import { type IBaseData } from "tree_algorithm";
 
 export interface IVisibleNode extends IBaseData {
     fontSize: number;

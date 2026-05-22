@@ -465,13 +465,6 @@ export class CoreCanvas extends DrawShape {
                                 (node.fontSize || 12) * zoom,
                             );
                         }
-                    } else {
-                        this.text(
-                            node.id,
-                            nodeX + this.TEXT_PADDING * zoom,
-                            nodeY + this.TEXT_BASELINE_OFFSET * zoom,
-                            12 * zoom,
-                        );
                     }
                 }
             }

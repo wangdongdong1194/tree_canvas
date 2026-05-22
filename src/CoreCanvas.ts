@@ -1,17 +1,16 @@
 import { DrawShape } from "./DrawShape";
-import { VisibleElement, type IVisibleNode } from "./VisibleElement";
+import { VisibleElement } from "./VisibleElement";
 import { EventKey } from "./EventKey";
 import type { EventBus } from "./EventBus";
 import type { INodeData } from "tree_algorithm";
 import type { IAddNodeCommand, IDeleteNodeCommand, IEditNodeCommand, NodeContent } from "./history/CanvasCommand";
 import { CanvasHistoryManager } from "./history/CanvasHistoryManager";
 import { RichTextCanvas } from "rich_text_canvas";
+import type { ArrowKey, IVisibleNode } from "./type";
 
-export type ArrowKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight';
 
 export class CoreCanvas extends DrawShape {
     private canvas: HTMLCanvasElement;
-    private root: HTMLElement;
     private visibleElement: VisibleElement;
     private _TEMP_ID = 2;
     private drawRequestId: number | null = null;
@@ -56,7 +55,6 @@ export class CoreCanvas extends DrawShape {
         }
         this.visibleElement.setBoundary(0, 0, width, height);
         this.historyManager = new CanvasHistoryManager(this.visibleElement, () => this.draw(), this.HISTORY_LIMIT);
-        this.root = root;
         this.canvas = canvas;
         this.richTextCanvas = new RichTextCanvas(root, {});
         this.initEvent();
@@ -187,6 +185,9 @@ export class CoreCanvas extends DrawShape {
                 return;
             }
             this.commitTextareaContent(editorId);
+        });
+        this.richTextCanvas.addEventListener('input', () => {
+            console.log('rich text input', this.richTextCanvas.getToken(), this.richTextCanvas.getLines());
         });
     }
     private handleUndoRedoKeydown(event: KeyboardEvent) {
@@ -378,7 +379,6 @@ export class CoreCanvas extends DrawShape {
     private syncTextareaByEditorId() {
         const editorId = this.visibleElement.getEditorId();
         if (!editorId) {
-            console.log('no editor');
             this._CURRENT_EDITOR_ID = null;
             this.richTextCanvas.hide();
             return;

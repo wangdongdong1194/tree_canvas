@@ -1,23 +1,5 @@
-import { BaseData, type IBaseData, type INodeData } from "tree_algorithm";
-
-export interface IVisibleNode extends IBaseData {
-    fontSize: number;
-    contents: {
-        text: string;
-        textOffsetX: number;
-        textOffsetY: number;
-    }[];
-
-}
-
-export interface IVisibleLine {
-    parentId: string;
-    childId: string;
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
-}
+import { BaseData, type INodeData } from "tree_algorithm";
+import type { IVisibleLine, IVisibleNode } from "./type";
 
 export class VisibleElement extends BaseData<IVisibleNode> {
     private data: INodeData<IVisibleNode>;

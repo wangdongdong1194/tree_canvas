@@ -1,7 +1,4 @@
-export interface ICanvasEvent {
-    eventType: string;
-}
-type EventListener = (event: ICanvasEvent) => void;
+import type { EventListener, ICanvasEvent } from "./type";
 
 export class EventBus {
     private listeners: Map<string, Set<EventListener>> = new Map();

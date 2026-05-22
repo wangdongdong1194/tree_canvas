@@ -1,7 +1,4 @@
-export interface IStrokeRectOptions {
-    radius?: number;
-    strokeStyle?: string;
-}
+import type { IStrokeRectOptions } from "./type";
 
 export abstract class DrawShape {
     private _ctx: CanvasRenderingContext2D;
